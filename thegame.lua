@@ -1388,7 +1388,7 @@ MovementGroupBox:AddSlider('TpWalkSpeed', {
 })
 
 ExploitsGroupBox:AddButton({
-    Text = 'Instant Search',
+    Text = 'Instant Search *BUGGY*',
     Func = function()
         local NetworkSyncHeartbeat
         local InteractHeartbeat, FindItemData
@@ -1408,7 +1408,7 @@ ExploitsGroupBox:AddButton({
 })
 
 ExploitsGroupBox:AddButton({
-    Text = 'Use In Air',
+    Text = 'Use In Air *DTC*',
     Func = function()
         local Grounded
         Grounded = hookfunction(Raycasting.CharacterGroundCast, newcclosure(function(Self, Position, LengthDown, ...)
@@ -1435,7 +1435,7 @@ ExploitsGroupBox:AddButton({
 
 
 ExploitsGroupBox:AddButton({
-    Text = 'Anti-Ban',
+    Text = 'Anti-Ban *ALWAYS USE THIS*',
     Func = function()
         local stuff = getconnections(game:GetService("ScriptContext").Error)
         for i, v in pairs(stuff) do
