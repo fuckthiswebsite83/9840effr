@@ -8,7 +8,7 @@ local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/violi
 local ThemeManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/addons/ThemeManager.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/addons/SaveManager.lua"))()
 
-local Window = Library:CreateWindow({ Title = '[warp.space]', Center = true, AutoShow = true })
+local Window = Library:CreateWindow({ Title = '                           [warp.space]', Center = true, AutoShow = true })
 local Tabs = { 
     Main = Window:AddTab('Main'),
     Visuals = Window:AddTab('Visuals'), 
@@ -118,23 +118,6 @@ local function updateTextDrawing(drawing, distanceDrawing, position, renderDista
         distanceDrawing.Position = Vector2.new(screenPosition.X, screenPosition.Y + 20)
     end
 end
-
---[[]   
-    
-    local function get_mouse_position()
-        local mouseLocation = UserInputService:GetMouseLocation()
-        local mouseRay = Camera:ScreenPointToRay(mouseLocation.X, mouseLocation.Y)
-        local raycastParams = RaycastParams.new()
-        raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
-        raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-        local raycastResult = Workspace:Raycast(mouseRay.Origin, mouseRay.Direction * 1000, raycastParams)
-        if raycastResult then
-            return raycastResult.Position
-        end
-        return nil
-    end
-    
---]]
 
 local function createESPForModel(model, drawings, processedModels, connections, espSize, espColor, renderDistance)
     if processedModels[model] then return end
@@ -270,11 +253,32 @@ local function createPlayerESPElements(model, espSize, espColor)
         local combinedLabel = createDrawing("Text", combinedText, espSize, espColor)
         local box = createDrawing("Square", "", espSize, espColor)
 
+        local function updatePosition()
+            local camera = workspace.CurrentCamera
+            local cframe, size = model:GetBoundingBox()
+            local center = cframe.Position
+            local screenPosition, onScreen = camera:WorldToViewportPoint(center)
+
+            if onScreen then
+                local min = cframe.Position - size / 2
+                local max = cframe.Position + size / 2
+                local minScreenPos = camera:WorldToViewportPoint(min)
+                local maxScreenPos = camera:WorldToViewportPoint(max)
+
+                box.Position = Vector2.new(minScreenPos.X, minScreenPos.Y)
+                box.Size = Vector2.new(maxScreenPos.X - minScreenPos.X, maxScreenPos.Y - minScreenPos.Y)
+                combinedLabel.Position = Vector2.new(screenPosition.X, maxScreenPos.Y + 20)
+            end
+        end
+
+        updatePosition()
+
         return {
             Model = model,
             PrimaryPart = primaryPart,
             CombinedLabel = combinedLabel,
-            Box = box
+            Box = box,
+            UpdatePosition = updatePosition
         }
     end
 end
@@ -370,23 +374,29 @@ local function updatePlayerESP(element, position, distance)
             local cframe, size = model:GetBoundingBox()
             local min = cframe.Position - size / 2
             local max = cframe.Position + size / 2
+            local center = cframe.Position
             local minScreenPos, onScreenMin = camera:WorldToViewportPoint(min)
             local maxScreenPos, onScreenMax = camera:WorldToViewportPoint(max)
+            local centerScreenPos, onScreenCenter = camera:WorldToViewportPoint(center)
 
-            if onScreenMin and onScreenMax then
+            if onScreenMin and onScreenMax and onScreenCenter then
                 element.Box.Visible = true
                 element.Box.Position = Vector2.new(minScreenPos.X, minScreenPos.Y)
                 element.Box.Size = Vector2.new(maxScreenPos.X - minScreenPos.X, maxScreenPos.Y - minScreenPos.Y)
+                element.CombinedLabel.Position = Vector2.new(centerScreenPos.X, maxScreenPos.Y + 20)
             else
                 element.Box.Visible = false
+                element.CombinedLabel.Visible = false
             end
         else
             element.Box.Visible = false
+            element.CombinedLabel.Visible = false
         end
     else
         if element.Box then
             element.Box.Visible = false
         end
+        element.CombinedLabel.Visible = false
     end
 end
 
@@ -1526,7 +1536,7 @@ local WatermarkConnection = game:GetService('RunService').RenderStepped:Connect(
         FrameCounter = 0;
     end;
 
-    Library:SetWatermark(('warp.space | %s fps | %s ms'):format(
+    Library:SetWatermark(('[warp.space] | %s fps | %s ms'):format(
         math.floor(FPS),
         math.floor(game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue())
     ));
