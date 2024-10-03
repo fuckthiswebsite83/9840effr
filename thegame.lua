@@ -8,7 +8,7 @@ local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/violi
 local ThemeManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/addons/ThemeManager.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/addons/SaveManager.lua"))()
 
-local Window = Library:CreateWindow({ Title = '                           [warp.space]', Center = true, AutoShow = true })
+local Window = Library:CreateWindow({ Title = '[warp.space]', Center = true, AutoShow = true })
 local Tabs = { 
     Main = Window:AddTab('Main'),
     Visuals = Window:AddTab('Visuals'), 
@@ -25,7 +25,6 @@ local PlayerESPGroupBox = Tabs.Visuals:AddLeftGroupbox('Player ESP')
 local WorldMiscGroupBox = Tabs.Visuals:AddRightGroupbox('World Misc')
 local ZombieESPGroupBox = Tabs.Visuals:AddRightGroupbox('Zombie ESP')
 local EventESPGroupBox = Tabs.Visuals:AddLeftGroupbox('Event ESP')
-local AimedInFOVGroupBox = Tabs.Visuals:AddLeftGroupbox('Aimed in FOV')
 
 local ItemESPEnabled = false
 local VehicleESPEnabled = false
@@ -118,6 +117,23 @@ local function updateTextDrawing(drawing, distanceDrawing, position, renderDista
         distanceDrawing.Position = Vector2.new(screenPosition.X, screenPosition.Y + 20)
     end
 end
+
+--[[]   
+    
+    local function get_mouse_position()
+        local mouseLocation = UserInputService:GetMouseLocation()
+        local mouseRay = Camera:ScreenPointToRay(mouseLocation.X, mouseLocation.Y)
+        local raycastParams = RaycastParams.new()
+        raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
+        raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+        local raycastResult = Workspace:Raycast(mouseRay.Origin, mouseRay.Direction * 1000, raycastParams)
+        if raycastResult then
+            return raycastResult.Position
+        end
+        return nil
+    end
+    
+--]]
 
 local function createESPForModel(model, drawings, processedModels, connections, espSize, espColor, renderDistance)
     if processedModels[model] then return end
@@ -253,32 +269,11 @@ local function createPlayerESPElements(model, espSize, espColor)
         local combinedLabel = createDrawing("Text", combinedText, espSize, espColor)
         local box = createDrawing("Square", "", espSize, espColor)
 
-        local function updatePosition()
-            local camera = workspace.CurrentCamera
-            local cframe, size = model:GetBoundingBox()
-            local center = cframe.Position
-            local screenPosition, onScreen = camera:WorldToViewportPoint(center)
-
-            if onScreen then
-                local min = cframe.Position - size / 2
-                local max = cframe.Position + size / 2
-                local minScreenPos = camera:WorldToViewportPoint(min)
-                local maxScreenPos = camera:WorldToViewportPoint(max)
-
-                box.Position = Vector2.new(minScreenPos.X, minScreenPos.Y)
-                box.Size = Vector2.new(maxScreenPos.X - minScreenPos.X, maxScreenPos.Y - minScreenPos.Y)
-                combinedLabel.Position = Vector2.new(screenPosition.X, maxScreenPos.Y + 20)
-            end
-        end
-
-        updatePosition()
-
         return {
             Model = model,
             PrimaryPart = primaryPart,
             CombinedLabel = combinedLabel,
-            Box = box,
-            UpdatePosition = updatePosition
+            Box = box
         }
     end
 end
@@ -352,8 +347,10 @@ local function updatePlayerESP(element, position, distance)
     local camera = workspace.CurrentCamera
     local screenPosition, onScreen = camera:WorldToViewportPoint(position)
 
-    element.CombinedLabel.Visible = PlayerESPEnabled and PlayerESPTextEnabled and onScreen
-    if PlayerESPEnabled and PlayerESPTextEnabled and onScreen then
+    local playerESPEnabled = PlayerESPEnabled and PlayerESPTextEnabled and onScreen
+    element.CombinedLabel.Visible = playerESPEnabled
+
+    if playerESPEnabled then
         local player = Players:GetPlayerFromCharacter(element.Model)
         local stats = player and player:FindFirstChild("Stats")
         local health = stats and stats:FindFirstChild("Health") and stats.Health.Value or "N/A"
@@ -361,11 +358,8 @@ local function updatePlayerESP(element, position, distance)
         local secondary = stats and stats:FindFirstChild("Secondary") and stats.Secondary.Value or "N/A"
         local playerName = player and player.Name or "Unknown"
 
-        local combinedText = string.format("[Player: %s | HP: %s]\n[Primary: %s]\n[Secondary: %s]\n[Distance: %.1f studs]", playerName, health, primary, secondary, distance)
-        element.CombinedLabel.Text = combinedText
-
-        local boxHeight = element.Box.Size.Y
-        element.CombinedLabel.Position = Vector2.new(screenPosition.X, screenPosition.Y + boxHeight / 2 + 20)
+        element.CombinedLabel.Text = string.format("[Player: %s | HP: %s]\n[Primary: %s]\n[Secondary: %s]\n[Distance: %.1f studs]", playerName, health, primary, secondary, distance)
+        element.CombinedLabel.Position = Vector2.new(screenPosition.X, screenPosition.Y + (element.Box.Size.Y / 2) + 20)
     end
 
     if PlayerESPBoxEnabled and element.Box then
@@ -374,29 +368,19 @@ local function updatePlayerESP(element, position, distance)
             local cframe, size = model:GetBoundingBox()
             local min = cframe.Position - size / 2
             local max = cframe.Position + size / 2
-            local center = cframe.Position
             local minScreenPos, onScreenMin = camera:WorldToViewportPoint(min)
             local maxScreenPos, onScreenMax = camera:WorldToViewportPoint(max)
-            local centerScreenPos, onScreenCenter = camera:WorldToViewportPoint(center)
 
-            if onScreenMin and onScreenMax and onScreenCenter then
-                element.Box.Visible = true
+            element.Box.Visible = onScreenMin and onScreenMax
+            if element.Box.Visible then
                 element.Box.Position = Vector2.new(minScreenPos.X, minScreenPos.Y)
                 element.Box.Size = Vector2.new(maxScreenPos.X - minScreenPos.X, maxScreenPos.Y - minScreenPos.Y)
-                element.CombinedLabel.Position = Vector2.new(centerScreenPos.X, maxScreenPos.Y + 20)
-            else
-                element.Box.Visible = false
-                element.CombinedLabel.Visible = false
             end
         else
             element.Box.Visible = false
-            element.CombinedLabel.Visible = false
         end
-    else
-        if element.Box then
-            element.Box.Visible = false
-        end
-        element.CombinedLabel.Visible = false
+    elseif element.Box then
+        element.Box.Visible = false
     end
 end
 
@@ -443,20 +427,7 @@ local function managePlayerBoxESP()
 end
 
 local function managePlayerESP()
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            local character = player.Character
-            if character then
-                local esp = createPlayerESPElements(character, PlayerESPSize, PlayerESPColor)
-                if esp then
-                    table.insert(activePlayerDrawings, esp)
-                    processedPlayerModels[character] = esp
-                end
-            end
-        end
-    end
-
-    Players.PlayerAdded:Connect(function(player)
+    local function addPlayerESP(player)
         if player ~= LocalPlayer then
             player.CharacterAdded:Connect(function(character)
                 local esp = createPlayerESPElements(character, PlayerESPSize, PlayerESPColor)
@@ -466,22 +437,36 @@ local function managePlayerESP()
                 end
             end)
         end
-    end)
+    end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        addPlayerESP(player)
+    end
+
+    Players.PlayerAdded:Connect(addPlayerESP)
 
     RunService.RenderStepped:Connect(function()
+        local localCharacter = LocalPlayer.Character
+        if not localCharacter then return end
+
+        local localCharacterPosition = localCharacter.PrimaryPart and localCharacter.PrimaryPart.Position
+        if not localCharacterPosition then return end
+
         for i = #activePlayerDrawings, 1, -1 do
             local element = activePlayerDrawings[i]
             local model = element.Model
+
             if model.Parent then
-                local localCharacter = Players.LocalPlayer.Character
-                if localCharacter and localCharacter ~= model then
-                    local localCharacterPosition = localCharacter.PrimaryPart.Position
+                if localCharacter ~= model then
                     local distance = (localCharacterPosition - element.PrimaryPart.Position).Magnitude
 
                     if distance <= PlayerRenderDistance then
                         updatePlayerESP(element, element.PrimaryPart.Position, distance)
                     else
                         element.CombinedLabel.Visible = false
+                        if element.Box then
+                            element.Box.Visible = false
+                        end
                     end
                 end
             else
@@ -849,16 +834,6 @@ end)
 
 setreadonly(mt, true)
 
-if AimedInFOVEnabled then
-    local gun = require(game:GetService("ReplicatedStorage").Client.Abstracts.ItemInitializers.Firearm)
-    local old
-    old = hookfunction(gun, function(a, b, c)
-        setreadonly(b, false)
-        b.AimFieldOfView = AimedInFOVValue
-        return old(a, b, c)
-    end)
-end
-
 ItemESPGroupBox:AddToggle('ItemESP', {
     Text = 'Item ESP',
     Default = false,
@@ -1215,27 +1190,6 @@ EventESPGroupBox:AddSlider('EventRenderDistance', {
     end 
 })
 
-AimedInFOVGroupBox:AddToggle('AimedInFOVEnabled', {
-    Text = 'Enable Aimed in FOV',
-    Default = false,
-    Tooltip = 'Toggle Aimed in FOV on or off',
-    Callback = function(Value)
-        AimedInFOVEnabled = Value
-    end
-})
-
-AimedInFOVGroupBox:AddSlider('AimedInFOVValue', {
-    Text = 'Aimed in FOV Value',
-    Default = 90,
-    Min = 0,
-    Max = 80,
-    Rounding = 0,
-    Compact = false,
-    Callback = function(Value)
-        AimedInFOVValue = Value
-    end
-})
-
 GunModsGroupBox:AddButton({
     Text = 'No Spread No Recoil V.1',
     Func = function()
@@ -1388,39 +1342,6 @@ MovementGroupBox:AddSlider('TpWalkSpeed', {
 })
 
 ExploitsGroupBox:AddButton({
-    Text = 'Instant Search *BUGGY*',
-    Func = function()
-        local NetworkSyncHeartbeat
-        local InteractHeartbeat, FindItemData
-        for Index, Table in pairs(getgc(true)) do
-            if type(Table) == "table" and rawget(Table, "Rate") == 0.05 then
-                InteractHeartbeat = Table.Action
-                FindItemData = getupvalue(InteractHeartbeat, 11)
-            end
-        end
-
-        setupvalue(InteractHeartbeat, 11, function(...)
-            local ReturnArgs = {FindItemData(...)}
-            if ReturnArgs[4] then ReturnArgs[4] = 0 end
-            return unpack(ReturnArgs)
-        end)
-    end
-})
-
-ExploitsGroupBox:AddButton({
-    Text = 'Use In Air *DTC*',
-    Func = function()
-        local Grounded
-        Grounded = hookfunction(Raycasting.CharacterGroundCast, newcclosure(function(Self, Position, LengthDown, ...)
-            if PlayerClass.Character and Position == PlayerClass.Character.RootPart.CFrame then
-                return GroundPart, CFrame.new(), Vector3.new(0, 1, 0)
-            end
-            return Grounded(Self, Position, LengthDown, ...)
-        end))
-    end
-})
-
-ExploitsGroupBox:AddButton({
     Text = 'Anti-Zombie',
     Func = function()
         while task.wait() and TpWalkingEnabled do
@@ -1429,17 +1350,6 @@ ExploitsGroupBox:AddButton({
                     v.HumanoidRootPart.VectorForce.MaxForce = Vector3.new(-4000, 4000, -4000)
                 end
             end)
-        end
-    end
-})
-
-
-ExploitsGroupBox:AddButton({
-    Text = 'Anti-Ban *ALWAYS USE THIS*',
-    Func = function()
-        local stuff = getconnections(game:GetService("ScriptContext").Error)
-        for i, v in pairs(stuff) do
-            v:Disconnect()
         end
     end
 })
@@ -1536,7 +1446,7 @@ local WatermarkConnection = game:GetService('RunService').RenderStepped:Connect(
         FrameCounter = 0;
     end;
 
-    Library:SetWatermark(('[warp.space] | %s fps | %s ms'):format(
+    Library:SetWatermark(('warp.space | %s fps | %s ms'):format(
         math.floor(FPS),
         math.floor(game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue())
     ));
