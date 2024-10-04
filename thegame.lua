@@ -8,7 +8,7 @@ local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/violi
 local ThemeManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/addons/ThemeManager.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/addons/SaveManager.lua"))()
 
-local Window = Library:CreateWindow({ Title = '  $ $ $ $ $$ $$ $$$ $$ $ [warp.space] $ $$ $$ [v.1] $ $ $ $ $$ $$$', Center = true, AutoShow = true })
+local Window = Library:CreateWindow({ Title = ' $ $ $ $ $ $$ $$$ $$ $  [warp.space] $ $$ $$ [v.1] $ $ $ $ $$$', Center = true, AutoShow = true })
 local Tabs = { 
     Main = Window:AddTab('Main'),
     Visuals = Window:AddTab('Visuals'), 
@@ -91,7 +91,7 @@ local function createTextDrawing(text, size, color)
     drawing.Size = size
     drawing.Color = color
     drawing.Center = true
-    drawing.Outline = true
+    drawing.Outline = false
     drawing.Visible = false
     return drawing
 end
@@ -698,7 +698,7 @@ local function createEventESPForModel(model, drawings, processedModels, connecti
         distanceDrawing.Size = espSize
         distanceDrawing.Color = espColor
         distanceDrawing.Center = true
-        distanceDrawing.Outline = true
+        distanceDrawing.Outline = false
         distanceDrawing.Visible = false
         table.insert(drawings, distanceDrawing)
 
