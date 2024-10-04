@@ -40,6 +40,7 @@ local TpWalkSpeed = 10
 local jumpHackConnection
 
 local HighlightESPEnabled = false
+local ChamsWallcheckEnabled = false
 local highlightConnections = {}
 
 local LocalPlayer = Players.LocalPlayer
@@ -116,6 +117,23 @@ local function updateTextDrawing(drawing, distanceDrawing, position, renderDista
         distanceDrawing.Position = Vector2.new(screenPosition.X, screenPosition.Y + 20)
     end
 end
+
+--[[]   
+    
+    local function get_mouse_position()
+        local mouseLocation = UserInputService:GetMouseLocation()
+        local mouseRay = Camera:ScreenPointToRay(mouseLocation.X, mouseLocation.Y)
+        local raycastParams = RaycastParams.new()
+        raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
+        raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+        local raycastResult = Workspace:Raycast(mouseRay.Origin, mouseRay.Direction * 1000, raycastParams)
+        if raycastResult then
+            return raycastResult.Position
+        end
+        return nil
+    end
+    
+--]]
 
 local function createESPForModel(model, drawings, processedModels, connections, espSize, espColor, renderDistance)
     if processedModels[model] then return end
@@ -232,8 +250,8 @@ local function updatePlayerESP(element, position, distance)
     local camera = workspace.CurrentCamera
     local screenPosition, onScreen = camera:WorldToViewportPoint(position)
 
-    element.CombinedLabel.Visible = PlayerESPEnabled and PlayerESPTextEnabled and onScreen
-    if PlayerESPEnabled and PlayerESPTextEnabled and onScreen then
+    element.CombinedLabel.Visible = PlayerESPEnabled and PlayerESPTextEnabled and onScreen and distance <= PlayerRenderDistance
+    if PlayerESPEnabled and PlayerESPTextEnabled and onScreen and distance <= PlayerRenderDistance then
         local player = Players:GetPlayerFromCharacter(element.Model)
         local stats = player and player:FindFirstChild("Stats")
         local health = stats and stats:FindFirstChild("Health") and stats.Health.Value or "N/A"
@@ -249,7 +267,8 @@ local function updatePlayerESP(element, position, distance)
     end
 
     if PlayerESPBoxEnabled and element.Box then
-        if onScreen then
+        element.Box.Visible = onScreen and distance <= PlayerRenderDistance
+        if onScreen and distance <= PlayerRenderDistance then
             local model = element.Model
             local cframe, size = model:GetBoundingBox()
             local min = cframe.Position - size / 2
@@ -316,6 +335,15 @@ local function clearPlayerESPElements(elements)
 end
 
 local function managePlayerBoxESP()
+    if not PlayerESPBoxEnabled then
+        for _, element in ipairs(activePlayerDrawings) do
+            if element.Box then
+                element.Box.Visible = false
+            end
+        end
+        return
+    end
+
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
             local character = player.Character
@@ -336,62 +364,35 @@ local function managePlayerBoxESP()
     end
 end
 
-local function managePlayerESP()
-    clearPlayerESPElements(activePlayerDrawings)
-    if not PlayerESPEnabled then return end
+RunService.RenderStepped:Connect(function()
+    for i = #activePlayerDrawings, 1, -1 do
+        local element = activePlayerDrawings[i]
+        local model = element.Model
+        if model.Parent then
+            local localCharacter = Players.LocalPlayer.Character
+            if localCharacter and localCharacter ~= model then
+                local localCharacterPosition = localCharacter.PrimaryPart.Position
+                local distance = (localCharacterPosition - element.PrimaryPart.Position).Magnitude
 
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            local character = player.Character
-            if character then
-                local esp = createPlayerESPElements(character, PlayerESPSize, PlayerESPColor)
-                if esp then
-                    table.insert(activePlayerDrawings, esp)
-                    processedPlayerModels[character] = esp
-                end
-            end
-        end
-    end
+                updatePlayerESP(element, element.PrimaryPart.Position, distance)
 
-    Players.PlayerAdded:Connect(function(player)
-        if player ~= LocalPlayer then
-            player.CharacterAdded:Connect(function(character)
-                local esp = createPlayerESPElements(character, PlayerESPSize, PlayerESPColor)
-                if esp then
-                    table.insert(activePlayerDrawings, esp)
-                    processedPlayerModels[character] = esp
-                end
-            end)
-        end
-    end)
-
-    RunService.RenderStepped:Connect(function()
-        for i = #activePlayerDrawings, 1, -1 do
-            local element = activePlayerDrawings[i]
-            local model = element.Model
-            if model.Parent then
-                local localCharacter = Players.LocalPlayer.Character
-                if localCharacter and localCharacter ~= model then
-                    local localCharacterPosition = localCharacter.PrimaryPart.Position
-                    local distance = (localCharacterPosition - element.PrimaryPart.Position).Magnitude
-
-                    if distance <= PlayerRenderDistance then
-                        updatePlayerESP(element, element.PrimaryPart.Position, distance)
-                    else
-                        element.CombinedLabel.Visible = false
+                if distance > PlayerRenderDistance then
+                    element.CombinedLabel.Visible = false
+                    if element.Box then
+                        element.Box.Visible = false
                     end
                 end
-            else
-                element.CombinedLabel:Remove()
-                if element.Box then
-                    element.Box:Remove()
-                end
-                table.remove(activePlayerDrawings, i)
-                processedPlayerModels[model] = nil
             end
+        else
+            element.CombinedLabel:Remove()
+            if element.Box then
+                element.Box:Remove()
+            end
+            table.remove(activePlayerDrawings, i)
+            processedPlayerModels[model] = nil
         end
-    end)
-end
+    end
+end)
 
 local function createZombieESPForModel(model, drawings, processedModels, connections, espSize, espColor, renderDistance)
     if processedModels[model] then return end
@@ -487,6 +488,72 @@ local function clearEventESP()
     table.clear(activeEventDrawings)
     table.clear(processedEventModels)
     table.clear(eventConnections)
+end
+
+local function highlightp(target)
+    if not HighlightESPEnabled then return end
+    local highlight = target:FindFirstChildOfClass("Highlight")
+    if not highlight then
+        highlight = Instance.new("Highlight")
+        highlight.Name = "ESPHighlight"
+        highlight.FillColor = Color3.fromRGB(255, 0, 0)
+        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        highlight.FillTransparency = 0.5
+        highlight.OutlineTransparency = 0
+        highlight.Parent = target
+    end
+    highlight.Enabled = true
+    highlight.DepthMode = ChamsWallcheckEnabled and Enum.HighlightDepthMode.AlwaysOnTop or Enum.HighlightDepthMode.Occluded
+end
+
+local function highlightplayer(character)
+    if not HighlightESPEnabled then return end
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        highlightp(character)
+    end
+end
+
+local function startHighlightESP()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            if player.Character then
+                highlightp(player.Character)
+            end
+            local connection = player.CharacterAdded:Connect(function(character)
+                highlightp(character)
+            end)
+            table.insert(highlightConnections, connection)
+        end
+    end
+    
+    local playerAddedConnection = Players.PlayerAdded:Connect(function(player)
+        if player ~= LocalPlayer then
+            if player.Character then
+                highlightp(player.Character)
+            end
+            local connection = player.CharacterAdded:Connect(function(character)
+                highlightp(character)
+            end)
+            table.insert(highlightConnections, connection)
+        end
+    end)
+    table.insert(highlightConnections, playerAddedConnection)
+end
+
+local function stopHighlightESP()
+    for _, connection in ipairs(highlightConnections) do
+        connection:Disconnect()
+    end
+    table.clear(highlightConnections)
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local highlight = player.Character:FindFirstChild("ESPHighlight")
+            if highlight then
+                highlight.Enabled = false
+            end
+        end
+    end
 end
 
 LocalPlayer.CharacterAdded:Connect(function(newCharacter)
@@ -873,6 +940,19 @@ PlayerESPGroupBox:AddToggle('HighlightESP', {
             startHighlightESP()
         else
             stopHighlightESP()
+        end
+    end
+})
+
+PlayerESPGroupBox:AddToggle('ChamsWallcheck', {
+    Text = 'Wallcheck',
+    Default = false,
+    Tooltip = 'Toggle wallcheck on or off',
+    Callback = function(Value)
+        ChamsWallcheckEnabled = Value
+        if HighlightESPEnabled then
+            stopHighlightESP()
+            startHighlightESP()
         end
     end
 })
