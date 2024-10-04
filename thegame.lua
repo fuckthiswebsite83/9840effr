@@ -490,46 +490,6 @@ local function clearEventESP()
     table.clear(eventConnections)
 end
 
-local function managePlayerESP()
-    if not PlayerESPEnabled then
-        clearPlayerESPElements(activePlayerDrawings)
-        table.clear(processedPlayerModels)
-        return
-    end
-
-    reinitializePlayerESP()
-
-    Players.PlayerAdded:Connect(function(player)
-        if player ~= LocalPlayer then
-            player.CharacterAdded:Connect(function(character)
-                local esp = createPlayerESPElements(character, PlayerESPSize, PlayerESPColor)
-                if esp then
-                    table.insert(activePlayerDrawings, esp)
-                    processedPlayerModels[character] = esp
-                end
-            end)
-        end
-    end)
-
-    Players.PlayerRemoving:Connect(function(player)
-        if player ~= LocalPlayer then
-            local character = player.Character
-            if character and processedPlayerModels[character] then
-                local esp = processedPlayerModels[character]
-                esp.CombinedLabel:Remove()
-                if esp.Box then esp.Box:Remove() end
-                for i, v in ipairs(activePlayerDrawings) do
-                    if v == esp then
-                        table.remove(activePlayerDrawings, i)
-                        break
-                    end
-                end
-                processedPlayerModels[character] = nil
-            end
-        end
-    end)
-end
-
 local function highlightp(target)
     if not HighlightESPEnabled then return end
     local highlight = target:FindFirstChildOfClass("Highlight")
@@ -601,8 +561,10 @@ LocalPlayer.CharacterAdded:Connect(function(newCharacter)
     HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
     Humanoid = Character:WaitForChild("Humanoid")
     
+    -- Attach the jump hack
     attachJumpHack()
     
+    -- Manage other functionalities
     if ItemESPEnabled then
         manageItemESP()
     end
@@ -610,7 +572,7 @@ LocalPlayer.CharacterAdded:Connect(function(newCharacter)
         manageVehicleESP()
     end
     if PlayerESPEnabled then
-        reinitializePlayerESP()
+        managePlayerESP()
     end
     if ZombieESPEnabled then
         manageZombieESP()
@@ -623,15 +585,15 @@ end)
 LocalPlayer.CharacterRemoving:Connect(function()
     clearDrawings(activeItemDrawings, processedItemModels, itemConnections)
     clearDrawings(activeVehicleDrawings, processedVehicleModels, vehicleConnections)
-    
-    if PlayerESPEnabled then
-        clearPlayerESPElements()
-        table.clear(processedPlayerModels)
-    end
-    
+    clearPlayerESPElements(activePlayerDrawings)
     clearDrawings(activeZombieDrawings, processedZombieModels, zombieConnections)
     clearEventESP()
 end)
+
+local function formatModelName(name)
+    local formattedName = name:gsub("%d", ""):gsub("(%l)(%u)", "%1 %2")
+    return formattedName
+end
 
 local function handlePlayerDeath()
     local function onCharacterAdded(newCharacter)
@@ -712,23 +674,6 @@ local function createEventESPForModel(model, drawings, processedModels, connecti
             end
         end)
         table.insert(connections, connection)
-    end
-end
-
-local function reinitializePlayerESP()
-    if clearPlayerESPElements then
-        clearPlayerESPElements(activePlayerDrawings)
-    end
-    table.clear(processedPlayerModels)
-    
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= Players.LocalPlayer and player.Character then
-            local esp = createPlayerESPElements(player.Character, PlayerESPSize, PlayerESPColor)
-            if esp then
-                table.insert(activePlayerDrawings, esp)
-                processedPlayerModels[player.Character] = esp
-            end
-        end
     end
 end
 
