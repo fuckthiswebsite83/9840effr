@@ -556,6 +556,62 @@ local function stopHighlightESP()
     end
 end
 
+local function managePlayerESP()
+    clearPlayerESPElements(activePlayerDrawings)
+    if not PlayerESPEnabled then return end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local character = player.Character
+            if character then
+                local esp = createPlayerESPElements(character, PlayerESPSize, PlayerESPColor)
+                if esp then
+                    table.insert(activePlayerDrawings, esp)
+                    processedPlayerModels[character] = esp
+                end
+            end
+        end
+    end
+
+    local playerAddedConnection
+    playerAddedConnection = Players.PlayerAdded:Connect(function(player)
+        if player ~= LocalPlayer then
+            local function onCharacterAdded(character)
+                if PlayerESPEnabled then
+                    local esp = createPlayerESPElements(character, PlayerESPSize, PlayerESPColor)
+                    if esp then
+                        table.insert(activePlayerDrawings, esp)
+                        processedPlayerModels[character] = esp
+                    end
+                end
+            end
+
+            if player.Character then
+                onCharacterAdded(player.Character)
+            end
+            player.CharacterAdded:Connect(onCharacterAdded)
+        end
+    end)
+    table.insert(playerConnections, playerAddedConnection)
+
+    local playerRemovingConnection
+    playerRemovingConnection = Players.PlayerRemoving:Connect(function(player)
+        local esp = processedPlayerModels[player.Character]
+        if esp then
+            if esp.CombinedLabel then esp.CombinedLabel:Remove() end
+            if esp.Box then esp.Box:Remove() end
+            processedPlayerModels[player.Character] = nil
+            for i, v in ipairs(activePlayerDrawings) do
+                if v == esp then
+                    table.remove(activePlayerDrawings, i)
+                    break
+                end
+            end
+        end
+    end)
+    table.insert(playerConnections, playerRemovingConnection)
+end
+
 LocalPlayer.CharacterAdded:Connect(function(newCharacter)
     Character = newCharacter
     HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
