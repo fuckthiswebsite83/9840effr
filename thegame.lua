@@ -716,11 +716,13 @@ local function createEventESPForModel(model, drawings, processedModels, connecti
 end
 
 local function reinitializePlayerESP()
-    clearPlayerESPElements(activePlayerDrawings)
+    if clearPlayerESPElements then
+        clearPlayerESPElements(activePlayerDrawings)
+    end
     table.clear(processedPlayerModels)
     
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
+        if player ~= Players.LocalPlayer and player.Character then
             local esp = createPlayerESPElements(player.Character, PlayerESPSize, PlayerESPColor)
             if esp then
                 table.insert(activePlayerDrawings, esp)
