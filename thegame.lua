@@ -612,11 +612,11 @@ local function createEventESPForModel(model, drawings, processedModels, connecti
     end
 end
 
-local function resetEventESP()
+local function resetEventESP() -- // tf?
     for _, drawing in ipairs(activeEventDrawings) do
         if drawing.Remove then
             drawing:Remove()
-        end
+        end 
     end
     for _, connection in ipairs(eventConnections) do
         connection:Disconnect()
@@ -1314,20 +1314,6 @@ local function resetPlayerESPElements(elements)
         end
     end
     table.clear(elements)
-end
-
-local function resetEventESP() -- // tf?
-    for _, drawing in ipairs(activeEventDrawings) do
-        if drawing.Remove then
-            drawing:Remove()
-        end 
-    end
-    for _, connection in ipairs(eventConnections) do
-        connection:Disconnect()
-    end
-    table.clear(activeEventDrawings)
-    table.clear(processedEventModels)
-    table.clear(eventConnections)
 end
 
 local MenuGroup = Tabs['UI Settings']:AddLeftGroupbox('Menu')
