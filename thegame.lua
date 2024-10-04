@@ -359,7 +359,8 @@ local function updatePlayerESP(element, position, distance)
         local playerName = player and player.Name or "Unknown"
 
         element.CombinedLabel.Text = string.format("[Player: %s | HP: %s]\n[Primary: %s]\n[Secondary: %s]\n[Distance: %.1f studs]", playerName, health, primary, secondary, distance)
-        element.CombinedLabel.Position = Vector2.new(screenPosition.X, screenPosition.Y + (element.Box.Size.Y / 2) + 20)
+        local boxSizeY = element.Box and element.Box.Size.Y or 0
+        element.CombinedLabel.Position = Vector2.new(screenPosition.X, screenPosition.Y + (boxSizeY / 2) + 20)
     end
 
     if PlayerESPBoxEnabled and element.Box then
@@ -429,13 +430,18 @@ end
 local function managePlayerESP()
     local function addPlayerESP(player)
         if player ~= LocalPlayer then
-            player.CharacterAdded:Connect(function(character)
+            local function onCharacterAdded(character)
                 local esp = createPlayerESPElements(character, PlayerESPSize, PlayerESPColor)
                 if esp then
                     table.insert(activePlayerDrawings, esp)
                     processedPlayerModels[character] = esp
                 end
-            end)
+            end
+            
+            player.CharacterAdded:Connect(onCharacterAdded)
+            if player.Character then
+                onCharacterAdded(player.Character)
+            end
         end
     end
 
@@ -625,6 +631,26 @@ local function handlePlayerDeath()
             clearPlayerESPElements(activePlayerDrawings)
             clearDrawings(activeZombieDrawings, processedZombieModels, zombieConnections)
             clearEventESP()
+            
+            table.clear(processedPlayerModels)
+            
+            task.wait(1)
+            
+            if ItemESPEnabled then
+                manageItemESP()
+            end
+            if VehicleESPEnabled then
+                manageVehicleESP()
+            end
+            if PlayerESPEnabled then
+                managePlayerESP()
+            end
+            if ZombieESPEnabled then
+                manageZombieESP()
+            end
+            if EventESPEnabled then
+                handleEventESP()
+            end
         end)
     end
 
@@ -988,7 +1014,9 @@ PlayerESPGroupBox:AddToggle('PlayerESPText', {
     Callback = function(Value)
         PlayerESPTextEnabled = Value
         for _, drawing in ipairs(activePlayerDrawings) do
-            drawing.CombinedLabel.Visible = PlayerESPEnabled and PlayerESPTextEnabled
+            if drawing.CombinedLabel then
+                drawing.CombinedLabel.Visible = PlayerESPEnabled and PlayerESPTextEnabled
+            end
         end
     end
 })
@@ -999,7 +1027,11 @@ PlayerESPGroupBox:AddToggle('PlayerESPBox', {
     Tooltip = 'Toggle box ESP on or off',
     Callback = function(Value)
         PlayerESPBoxEnabled = Value
-        managePlayerBoxESP()
+        for _, drawing in ipairs(activePlayerDrawings) do
+            if drawing.Box then
+                drawing.Box.Visible = PlayerESPEnabled and PlayerESPBoxEnabled
+            end
+        end
     end
 })
 
