@@ -344,6 +344,23 @@ local function stopHighlightESP()
     end
 end
 
+local function updateBoxDrawing(box, model)
+    local camera = workspace.CurrentCamera
+    local cframe, size = model:GetBoundingBox()
+    local min = cframe.Position - size / 2
+    local max = cframe.Position + size / 2
+    local minScreenPos, onScreenMin = camera:WorldToViewportPoint(min)
+    local maxScreenPos, onScreenMax = camera:WorldToViewportPoint(max)
+
+    box.Visible = onScreenMin and onScreenMax
+    if box.Visible then
+        box.Position = Vector2.new(minScreenPos.X, minScreenPos.Y)
+        box.Size = Vector2.new(maxScreenPos.X - minScreenPos.X, maxScreenPos.Y - minScreenPos.Y)
+    else
+        box.Visible = false
+    end
+end
+
 local function updatePlayerESP(element, position, distance)
     local camera = workspace.CurrentCamera
     local screenPosition, onScreen = camera:WorldToViewportPoint(position)
@@ -371,27 +388,11 @@ local function updatePlayerESP(element, position, distance)
         element.CombinedLabel.Position = Vector2.new(screenPosition.X, screenPosition.Y + (element.Box.Size.Y / 2) + 20)
         element.CombinedLabel.Color = PlayerESPColor
         element.CombinedLabel.Size = PlayerESPSize
-        element.CombinedLabel.Outline = false
+        element.CombinedLabel.Outline = true
     end
 
     if PlayerESPBoxEnabled and element.Box then
-        if onScreen then
-            local model = element.Model
-            local cframe, size = model:GetBoundingBox()
-            local min = cframe.Position - size / 2
-            local max = cframe.Position + size / 2
-            local minScreenPos, onScreenMin = camera:WorldToViewportPoint(min)
-            local maxScreenPos, onScreenMax = camera:WorldToViewportPoint(max)
-
-            element.Box.Visible = onScreenMin and onScreenMax
-            if element.Box.Visible then
-                element.Box.Position = Vector2.new(minScreenPos.X, minScreenPos.Y)
-                element.Box.Size = Vector2.new(maxScreenPos.X - minScreenPos.X, maxScreenPos.Y - minScreenPos.Y)
-                element.Box.Color = PlayerESPColor
-            end
-        else
-            element.Box.Visible = false
-        end
+        updateBoxDrawing(element.Box, element.Model)
     elseif element.Box then
         element.Box.Visible = false
     end
