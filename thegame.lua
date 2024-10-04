@@ -8,7 +8,7 @@ local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/violi
 local ThemeManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/addons/ThemeManager.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/addons/SaveManager.lua"))()
 
-local Window = Library:CreateWindow({ Title = ' $ $$ $$ $$$ $$ $ [warp.space] $ $$ $$ [v.1] $ $', Center = true, AutoShow = true })
+local Window = Library:CreateWindow({ Title = ' $ $ $ $ $ $$ $$ $$$ $$ $ [warp.space] $ $$ $$ [v.1] $ $ $ $ $$ $$$$', Center = true, AutoShow = true })
 local Tabs = { 
     Main = Window:AddTab('Main'),
     Visuals = Window:AddTab('Visuals'), 
@@ -1402,7 +1402,6 @@ HitboxExpanderGroupBox:AddToggle('HitboxExpander', {
     end
 })
 
--- Add the Slider
 HitboxExpanderGroupBox:AddSlider('HitboxSize', { 
     Text = 'Hitbox Size', 
     Default = 4, 
