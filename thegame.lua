@@ -273,7 +273,8 @@ local function createPlayerESPElements(model, espSize, espColor)
             Model = model,
             PrimaryPart = primaryPart,
             CombinedLabel = combinedLabel,
-            Box = box
+            Box = box,
+            LastHealth = health
         }
     end
 end
@@ -358,8 +359,19 @@ local function updatePlayerESP(element, position, distance)
         local secondary = stats and stats:FindFirstChild("Secondary") and stats.Secondary.Value or "N/A"
         local playerName = player and player.Name or "Unknown"
 
-        element.CombinedLabel.Text = string.format("[Player: %s | HP: %s]\n[Primary: %s]\n[Secondary: %s]\n[Distance: %.1f studs]", playerName, health, primary, secondary, distance)
+        local bleedingText = ""
+        if health ~= "N/A" and element.LastHealth ~= "N/A" then
+            if health < element.LastHealth then
+                bleedingText = "[Bleeding] "
+            end
+        end
+        element.LastHealth = health
+
+        element.CombinedLabel.Text = string.format("%s[Player: %s | HP: %s]\n[Primary: %s]\n[Secondary: %s]\n[Distance: %.1f studs]", bleedingText, playerName, health, primary, secondary, distance)
         element.CombinedLabel.Position = Vector2.new(screenPosition.X, screenPosition.Y + (element.Box.Size.Y / 2) + 20)
+        element.CombinedLabel.Color = PlayerESPColor
+        element.CombinedLabel.Size = PlayerESPSize
+        element.CombinedLabel.Outline = false
     end
 
     if PlayerESPBoxEnabled and element.Box then
@@ -375,6 +387,7 @@ local function updatePlayerESP(element, position, distance)
             if element.Box.Visible then
                 element.Box.Position = Vector2.new(minScreenPos.X, minScreenPos.Y)
                 element.Box.Size = Vector2.new(maxScreenPos.X - minScreenPos.X, maxScreenPos.Y - minScreenPos.Y)
+                element.Box.Color = PlayerESPColor
             end
         else
             element.Box.Visible = false
@@ -429,12 +442,13 @@ end
 local function managePlayerESP()
     local function addPlayerESP(player)
         if player ~= LocalPlayer then
-            local character = player.Character or player.CharacterAdded:Wait()
-            local esp = createPlayerESPElements(character, PlayerESPSize, PlayerESPColor)
-            if esp then
-                table.insert(activePlayerDrawings, esp)
-                processedPlayerModels[character] = esp
-            end
+            player.CharacterAdded:Connect(function(character)
+                local esp = createPlayerESPElements(character, PlayerESPSize, PlayerESPColor)
+                if esp then
+                    table.insert(activePlayerDrawings, esp)
+                    processedPlayerModels[character] = esp
+                end
+            end)
         end
     end
 
@@ -442,18 +456,14 @@ local function managePlayerESP()
         addPlayerESP(player)
     end
 
+    Players.PlayerAdded:Connect(addPlayerESP)
+
     RunService.RenderStepped:Connect(function()
         local localCharacter = LocalPlayer.Character
         if not localCharacter then return end
 
         local localCharacterPosition = localCharacter.PrimaryPart and localCharacter.PrimaryPart.Position
         if not localCharacterPosition then return end
-
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and not processedPlayerModels[player.Character] then
-                addPlayerESP(player)
-            end
-        end
 
         for i = #activePlayerDrawings, 1, -1 do
             local element = activePlayerDrawings[i]
