@@ -8,7 +8,7 @@ local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/violi
 local ThemeManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/addons/ThemeManager.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/addons/SaveManager.lua"))()
 
-local Window = Library:CreateWindow({ Title = '[warp.space]', Center = true, AutoShow = true })
+local Window = Library:CreateWindow({ Title = ' $ $ $$ $$ $$$ $$ $ [warp.space] $ $$ $$ [v.1] $ $', Center = true, AutoShow = true })
 local Tabs = { 
     Main = Window:AddTab('Main'),
     Visuals = Window:AddTab('Visuals'), 
@@ -91,7 +91,7 @@ local function createTextDrawing(text, size, color)
     drawing.Size = size
     drawing.Color = color
     drawing.Center = true
-    drawing.Outline = false
+    drawing.Outline = true
     drawing.Visible = false
     return drawing
 end
@@ -117,23 +117,6 @@ local function updateTextDrawing(drawing, distanceDrawing, position, renderDista
         distanceDrawing.Position = Vector2.new(screenPosition.X, screenPosition.Y + 20)
     end
 end
-
---[[]   
-    
-    local function get_mouse_position()
-        local mouseLocation = UserInputService:GetMouseLocation()
-        local mouseRay = Camera:ScreenPointToRay(mouseLocation.X, mouseLocation.Y)
-        local raycastParams = RaycastParams.new()
-        raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
-        raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-        local raycastResult = Workspace:Raycast(mouseRay.Origin, mouseRay.Direction * 1000, raycastParams)
-        if raycastResult then
-            return raycastResult.Position
-        end
-        return nil
-    end
-    
---]]
 
 local function createESPForModel(model, drawings, processedModels, connections, espSize, espColor, renderDistance)
     if processedModels[model] then return end
@@ -273,8 +256,7 @@ local function createPlayerESPElements(model, espSize, espColor)
             Model = model,
             PrimaryPart = primaryPart,
             CombinedLabel = combinedLabel,
-            Box = box,
-            LastHealth = health
+            Box = box
         }
     end
 end
@@ -284,13 +266,14 @@ local function highlightp(target)
     local highlight = target:FindFirstChildOfClass("Highlight")
     if not highlight then
         highlight = Instance.new("Highlight")
-        highlight.Adornee = target
-        highlight.FillColor = Color3.fromRGB(128, 0, 128)
+        highlight.Name = "ESPHighlight"
+        highlight.FillColor = Color3.fromRGB(255, 0, 0)
         highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
         highlight.FillTransparency = 0.5
         highlight.OutlineTransparency = 0
         highlight.Parent = target
     end
+    highlight.Enabled = true
     highlight.DepthMode = ChamsWallcheckEnabled and Enum.HighlightDepthMode.AlwaysOnTop or Enum.HighlightDepthMode.Occluded
 end
 
@@ -304,25 +287,25 @@ end
 local function startHighlightESP()
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
+            if player.Character then
+                highlightp(player.Character)
+            end
             local connection = player.CharacterAdded:Connect(function(character)
                 highlightp(character)
             end)
             table.insert(highlightConnections, connection)
-            if player.Character then
-                highlightp(player.Character)
-            end
         end
     end
     
     local playerAddedConnection = Players.PlayerAdded:Connect(function(player)
         if player ~= LocalPlayer then
+            if player.Character then
+                highlightp(player.Character)
+            end
             local connection = player.CharacterAdded:Connect(function(character)
                 highlightp(character)
             end)
             table.insert(highlightConnections, connection)
-            if player.Character then
-                highlightp(player.Character)
-            end
         end
     end)
     table.insert(highlightConnections, playerAddedConnection)
@@ -336,28 +319,11 @@ local function stopHighlightESP()
     
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character then
-            local highlight = player.Character:FindFirstChildOfClass("Highlight")
+            local highlight = player.Character:FindFirstChild("ESPHighlight")
             if highlight then
-                highlight:Destroy()
+                highlight.Enabled = false
             end
         end
-    end
-end
-
-local function updateBoxDrawing(box, model)
-    local camera = workspace.CurrentCamera
-    local cframe, size = model:GetBoundingBox()
-    local min = cframe.Position - size / 2
-    local max = cframe.Position + size / 2
-    local minScreenPos, onScreenMin = camera:WorldToViewportPoint(min)
-    local maxScreenPos, onScreenMax = camera:WorldToViewportPoint(max)
-
-    box.Visible = onScreenMin and onScreenMax
-    if box.Visible then
-        box.Position = Vector2.new(minScreenPos.X, minScreenPos.Y)
-        box.Size = Vector2.new(maxScreenPos.X - minScreenPos.X, maxScreenPos.Y - minScreenPos.Y)
-    else
-        box.Visible = false
     end
 end
 
@@ -365,10 +331,8 @@ local function updatePlayerESP(element, position, distance)
     local camera = workspace.CurrentCamera
     local screenPosition, onScreen = camera:WorldToViewportPoint(position)
 
-    local playerESPEnabled = PlayerESPEnabled and PlayerESPTextEnabled and onScreen
-    element.CombinedLabel.Visible = playerESPEnabled
-
-    if playerESPEnabled then
+    element.CombinedLabel.Visible = PlayerESPEnabled and PlayerESPTextEnabled and onScreen
+    if PlayerESPEnabled and PlayerESPTextEnabled and onScreen then
         local player = Players:GetPlayerFromCharacter(element.Model)
         local stats = player and player:FindFirstChild("Stats")
         local health = stats and stats:FindFirstChild("Health") and stats.Health.Value or "N/A"
@@ -376,30 +340,37 @@ local function updatePlayerESP(element, position, distance)
         local secondary = stats and stats:FindFirstChild("Secondary") and stats.Secondary.Value or "N/A"
         local playerName = player and player.Name or "Unknown"
 
-        local bleedingText = ""
-        if health ~= "N/A" and element.LastHealth ~= "N/A" then
-            if health < element.LastHealth then
-                bleedingText = "[Bleeding] "
-            end
-        end
-        element.LastHealth = health
+        local combinedText = string.format("[Player: %s | HP: %s]\n[Primary: %s]\n[Secondary: %s]\n[Distance: %.1f studs]", playerName, health, primary, secondary, distance)
+        element.CombinedLabel.Text = combinedText
 
-        element.CombinedLabel.Text = string.format("%s[Player: %s | HP: %s]\n[Primary: %s]\n[Secondary: %s]\n[Distance: %.1f studs]", bleedingText, playerName, health, primary, secondary, distance)
-        element.CombinedLabel.Position = Vector2.new(screenPosition.X, screenPosition.Y + (element.Box.Size.Y / 2) + 20)
-        element.CombinedLabel.Color = PlayerESPColor
-        element.CombinedLabel.Size = PlayerESPSize
-        element.CombinedLabel.Outline = true
+        local boxHeight = element.Box.Size.Y
+        element.CombinedLabel.Position = Vector2.new(screenPosition.X, screenPosition.Y + boxHeight / 2 + 20)
     end
 
     if PlayerESPBoxEnabled and element.Box then
-        updateBoxDrawing(element.Box, element.Model)
-    elseif element.Box then
-        element.Box.Visible = false
+        if onScreen then
+            local model = element.Model
+            local cframe, size = model:GetBoundingBox()
+            local min = cframe.Position - size / 2
+            local max = cframe.Position + size / 2
+            local minScreenPos, onScreenMin = camera:WorldToViewportPoint(min)
+            local maxScreenPos, onScreenMax = camera:WorldToViewportPoint(max)
+
+            if onScreenMin and onScreenMax then
+                element.Box.Visible = true
+                element.Box.Position = Vector2.new(minScreenPos.X, minScreenPos.Y)
+                element.Box.Size = Vector2.new(maxScreenPos.X - minScreenPos.X, maxScreenPos.Y - minScreenPos.Y)
+            else
+                element.Box.Visible = false
+            end
+        else
+            element.Box.Visible = false
+        end
     end
 end
 
-local function clearPlayerESPElements(elements)
-    for _, element in ipairs(elements) do
+local function clearPlayerESPElements()
+    for _, element in ipairs(activePlayerDrawings) do
         if element.CombinedLabel then
             element.CombinedLabel:Remove()
         end
@@ -407,8 +378,12 @@ local function clearPlayerESPElements(elements)
             element.Box:Remove()
         end
     end
-    table.clear(elements)
+    table.clear(activePlayerDrawings)
     table.clear(processedPlayerModels)
+    for _, connection in ipairs(playerConnections) do
+        connection:Disconnect()
+    end
+    table.clear(playerConnections)
 end
 
 local function managePlayerBoxESP()
@@ -430,57 +405,52 @@ local function managePlayerBoxESP()
             end
         end
     end
-
-    if not PlayerESPBoxEnabled then
-        for _, element in ipairs(activePlayerDrawings) do
-            if element.Box then
-                element.Box.Visible = false
-            end
-        end
-    end
 end
 
 local function managePlayerESP()
-    local function addPlayerESP(player)
+    clearPlayerESPElements()
+
+    for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
-            player.CharacterAdded:Connect(function(character)
+            local character = player.Character
+            if character then
+                local esp = createPlayerESPElements(character, PlayerESPSize, PlayerESPColor)
+                if esp then
+                    table.insert(activePlayerDrawings, esp)
+                    processedPlayerModels[character] = esp
+                end
+            end
+        end
+    end
+
+    local playerAddedConnection = Players.PlayerAdded:Connect(function(player)
+        if player ~= LocalPlayer then
+            local characterAddedConnection = player.CharacterAdded:Connect(function(character)
                 local esp = createPlayerESPElements(character, PlayerESPSize, PlayerESPColor)
                 if esp then
                     table.insert(activePlayerDrawings, esp)
                     processedPlayerModels[character] = esp
                 end
             end)
+            table.insert(playerConnections, characterAddedConnection)
         end
-    end
+    end)
+    table.insert(playerConnections, playerAddedConnection)
 
-    for _, player in ipairs(Players:GetPlayers()) do
-        addPlayerESP(player)
-    end
-
-    Players.PlayerAdded:Connect(addPlayerESP)
-
-    RunService.RenderStepped:Connect(function()
-        local localCharacter = LocalPlayer.Character
-        if not localCharacter then return end
-
-        local localCharacterPosition = localCharacter.PrimaryPart and localCharacter.PrimaryPart.Position
-        if not localCharacterPosition then return end
-
+    local renderSteppedConnection = RunService.RenderStepped:Connect(function()
         for i = #activePlayerDrawings, 1, -1 do
             local element = activePlayerDrawings[i]
             local model = element.Model
-
             if model.Parent then
-                if localCharacter ~= model then
+                local localCharacter = Players.LocalPlayer.Character
+                if localCharacter and localCharacter ~= model then
+                    local localCharacterPosition = localCharacter.PrimaryPart.Position
                     local distance = (localCharacterPosition - element.PrimaryPart.Position).Magnitude
 
                     if distance <= PlayerRenderDistance then
                         updatePlayerESP(element, element.PrimaryPart.Position, distance)
                     else
                         element.CombinedLabel.Visible = false
-                        if element.Box then
-                            element.Box.Visible = false
-                        end
                     end
                 end
             else
@@ -493,6 +463,7 @@ local function managePlayerESP()
             end
         end
     end)
+    table.insert(playerConnections, renderSteppedConnection)
 end
 
 local function createZombieESPForModel(model, drawings, processedModels, connections, espSize, espColor, renderDistance)
@@ -634,11 +605,9 @@ local function handlePlayerDeath()
     local function onCharacterAdded(newCharacter)
         local humanoid = newCharacter:WaitForChild("Humanoid")
         humanoid.Died:Connect(function()
-            clearDrawings(activeItemDrawings, processedItemModels, itemConnections)
-            clearDrawings(activeVehicleDrawings, processedVehicleModels, vehicleConnections)
-            clearPlayerESPElements(activePlayerDrawings)
-            clearDrawings(activeZombieDrawings, processedZombieModels, zombieConnections)
-            clearEventESP()
+            clearPlayerESPElements()
+            wait(1) -- Wait for a short time to ensure the new character is fully loaded
+            managePlayerESP()
         end)
     end
 
@@ -677,7 +646,7 @@ local function createEventESPForModel(model, drawings, processedModels, connecti
         distanceDrawing.Size = espSize
         distanceDrawing.Color = espColor
         distanceDrawing.Center = true
-        distanceDrawing.Outline = false
+        distanceDrawing.Outline = true
         distanceDrawing.Visible = false
         table.insert(drawings, distanceDrawing)
 
@@ -988,7 +957,10 @@ PlayerESPGroupBox:AddToggle('ChamsWallcheck', {
         if HighlightESPEnabled then
             for _, player in pairs(Players:GetPlayers()) do
                 if player ~= LocalPlayer and player.Character then
-                    highlightp(player.Character)
+                    local highlight = player.Character:FindFirstChild("ESPHighlight")
+                    if highlight then
+                        highlight.DepthMode = Value and Enum.HighlightDepthMode.AlwaysOnTop or Enum.HighlightDepthMode.Occluded
+                    end
                 end
             end
         end
