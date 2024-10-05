@@ -29,6 +29,7 @@ local WorldMiscGroupBox = Tabs.Visuals:AddRightGroupbox('World Misc')
 local ZombieESPGroupBox = Tabs.Visuals:AddRightGroupbox('Zombie ESP')
 local EventESPGroupBox = Tabs.Visuals:AddLeftGroupbox('Event ESP')
 local CorpseESPGroupBox = Tabs.Visuals:AddLeftGroupbox('Corpse ESP')
+local MapESPGroupBox = Tabs.Visuals:AddLeftGroupbox('Map ESP')
 
 local ItemESPEnabled = false
 local VehicleESPEnabled = false
@@ -51,6 +52,9 @@ local LocalPlayer = Players.LocalPlayer
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
 local Humanoid = Character:WaitForChild("Humanoid")
+local player = Players.LocalPlayer
+local camera = Workspace.CurrentCamera
+local plr = player
 
 local PlayerESPEnabled = false
 local PlayerESPBoxEnabled = false
@@ -100,6 +104,18 @@ local InfiniteJumpEnabled = false
 
 local bulletDropEnabled = false
 local bulletDropValue = 0
+
+local SpiderClimbEnabled = false
+local SpiderClimbSpeed = 1
+
+local NetworkSyncHeartbeat
+local InteractHeartbeat, FindItemData
+
+local GodviewEnabled = false
+
+local instantBulletConnection
+
+local antiZombieEnabled = false
 
 -- // end of Nigga stuff \\ --
 
@@ -760,7 +776,6 @@ local function managePlayerESP()
         end
     end)
 
-    -- Ensure ESP is applied to players who spawn in after the toggle is set
     Players.PlayerAdded:Connect(function(player)
         player.CharacterAdded:Connect(function(character)
             if PlayerESPEnabled then
@@ -773,7 +788,6 @@ local function managePlayerESP()
         end)
     end)
 
-    -- Ensure ESP is applied to players who render in after the toggle is set
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= Players.LocalPlayer then
             player.CharacterAdded:Connect(function(character)
@@ -1097,6 +1111,75 @@ oldIndex = hookmetamethod(game, "__index", function(self, key)
     end
     return oldIndex(self, key)
 end)
+
+local function seewalls(pos, lookvector)
+    if pos and lookvector then
+        local ray = Ray.new(pos, (lookvector).Unit * 2)
+        local part, position = Workspace:FindPartOnRayWithIgnoreList(ray, {plr.Character, camera})
+        
+        if part then
+            return true
+        else
+            return false
+        end 
+    else
+        return false
+    end
+end
+
+RunService.Heartbeat:Connect(function()
+    local chr = plr.Character
+    if chr and chr:FindFirstChild("HumanoidRootPart") and chr:FindFirstChild("Head") then
+        local hrp = chr:FindFirstChild("HumanoidRootPart")
+        local head = chr:FindFirstChild("Head")
+        local result
+
+        result = seewalls(hrp.CFrame.p, hrp.CFrame.LookVector)
+
+        if result and SpiderClimbEnabled then
+            hrp.CFrame = hrp.CFrame * CFrame.new(0, SpiderClimbSpeed, 0)
+            for _, v in pairs(plr.Character:GetDescendants()) do
+                if v:IsA("BasePart") then
+                    v.Velocity, v.RotVelocity = Vector3.new(0, 0, 0), Vector3.new(0, 0, 0)
+                end
+            end
+        end
+    end
+end)
+
+local function enableInstantOpen()
+    for Index, Table in pairs(getgc(true)) do
+        if type(Table) == "table" and rawget(Table, "Rate") == 0.05 then
+            InteractHeartbeat = Table.Action
+            FindItemData = getupvalue(InteractHeartbeat, 11)
+        end
+    end
+
+    setupvalue(InteractHeartbeat, 11, function(...)
+        local ReturnArgs = {FindItemData(...)}
+        if ReturnArgs[4] then ReturnArgs[4] = 0 end
+
+        return unpack(ReturnArgs)
+    end)
+end
+
+local function disableInstantOpen()
+    if InteractHeartbeat and FindItemData then
+        setupvalue(InteractHeartbeat, 11, FindItemData)
+    end
+end
+
+local function refreshGodview()
+    while GodviewEnabled do
+        task.wait(10)
+        if GodviewEnabled then
+            local thing = require(game:GetService("ReplicatedStorage").Client.Abstracts.Interface.Map)
+            thing:DisableGodview()
+            task.wait(0.1)
+            thing:EnableGodview()
+        end
+    end
+end
 
 ItemESPGroupBox:AddToggle('ItemESP', {
     Text = 'Item ESP',
@@ -1503,6 +1586,24 @@ CorpseESPGroupBox:AddSlider('CorpseRenderDistance', {
     end 
 })
 
+MapESPGroupBox:AddToggle('GodviewToggle', {
+    Text = 'Enable Godview',
+    Default = false,
+    Tooltip = 'Toggle Godview on or off',
+    Callback = function(Value)
+        GodviewEnabled = Value
+        local thing = require(game:GetService("ReplicatedStorage").Client.Abstracts.Interface.Map)
+        if Value then
+            thing:DisableGodview()
+            task.wait(0.1) -- Small delay to ensure DisableGodview is applied
+            thing:EnableGodview()
+            task.spawn(refreshGodview) -- Start refreshing Godview
+        else
+            thing:DisableGodview()
+        end
+    end
+})
+
 GunModsGroupBox:AddButton({
     Text = 'No Spread No Recoil V.1',
     Func = function()
@@ -1581,21 +1682,21 @@ GunModsGroupBox:AddButton({
 })
 
 GunModsGroupBox:AddButton({
-    Text = 'Unlimited Ammo',
+    Text = 'Unlock Firemodes',
     Func = function()
-        local str = 'Amount'
-        for i, v in pairs(getgc(true)) do
-            if type(v) == 'table' and rawget(v, str) then
-                coroutine.wrap(function()
-                    while true do
-                        v[str] = 1000
-                        task.wait(math.random(0.1, 1))
-                    end
-                end)()
-            end
-        end
+        local gun = require(game:GetService("ReplicatedStorage").Client.Abstracts.ItemInitializers.Firearm)
+        local old
+        old = hookfunction(gun.new, function(a, b, c)
+            setreadonly(b, false)
+            setreadonly(b.FireModes, false)
+            b.FireModes = {"Semiautomatic", "Burst", "Automatic"}
+            b.DefaultFireMode = "Automatic"
+            setreadonly(b.FireModes, true)
+            setreadonly(b, true)
+            return old(a, b, c)
+        end)
     end,
-    Tooltip = 'Set the ammo amount to 1000'
+    Tooltip = '*DROP GUN AND PICK IT BACK UP*'
 })
 
 GunModsGroupBox:AddToggle('BulletDrop', {
@@ -1632,7 +1733,7 @@ GunModsGroupBox:AddSlider('BulletDropValue', {
 })
 
 GunModsGroupBox:AddButton({
-    Text = 'Firemodes',
+    Text = 'Change Firemodes',
     Func = function()
         local gun = require(game:GetService("ReplicatedStorage").Client.Abstracts.ItemInitializers.Firearm)
         local old
@@ -1645,6 +1746,33 @@ GunModsGroupBox:AddButton({
         end)
     end,
     Tooltip = '*DROP GUN AND PICK IT BACK UP*'
+})
+
+GunModsGroupBox:AddButton({
+    Text = 'Instant Bullet',
+    Func = function()
+        if instantBulletConnection then
+            instantBulletConnection:Disconnect()
+        end
+
+        local cam = workspace.CurrentCamera
+
+        instantBulletConnection = game:GetService("RunService").RenderStepped:Connect(function()
+            pcall(function()
+                local char = game:GetService("Players").LocalPlayer.Character
+                local ray = workspace:Raycast(cam.CFrame.Position, cam.CFrame.LookVector * 500)
+                local baza = char.Equipped:GetChildren()[1]:FindFirstChild("Base")
+                local muzzle = char.Equipped:GetChildren()[1]:FindFirstChild("Muzzle")
+                if ray and ray.Position and muzzle then
+                    local thing = muzzle.Weld
+                    local cf = thing.C0
+                    cf -= Vector3.new(0, 0, cf.Z)
+                    cf += Vector3.new(0, 0, (ray.Position - baza.Position).Magnitude)
+                    thing.C0 = cf
+                end
+            end)
+        end)
+    end
 })
 
 local function attachJumpHack()
@@ -1730,10 +1858,33 @@ MovementGroupBox:AddToggle('InfiniteJump', {
     end
 })
 
+MovementGroupBox:AddToggle('SpiderClimb', {
+    Text = 'Spider Climb',
+    Default = false,
+    Tooltip = 'Toggle spider climb on or off',
+    Callback = function(Value)
+        SpiderClimbEnabled = Value
+    end
+})
+
+MovementGroupBox:AddSlider('SpiderClimbSpeed', { 
+    Text = 'Spider Climb Speed', 
+    Default = 1, 
+    Min = 0.1, 
+    Max = 10, 
+    Rounding = 1, 
+    Compact = false, 
+    Callback = function(Value) 
+        SpiderClimbSpeed = Value 
+    end 
+})
+
 ExploitsGroupBox:AddButton({
     Text = 'Anti-Zombie',
     Func = function()
-        while task.wait() and TpWalkingEnabled do
+        antiZombieEnabled = not antiZombieEnabled
+
+        while antiZombieEnabled and task.wait() do
             pcall(function()
                 for _, v in pairs(workspace.Zombies.Mobs:GetChildren()) do
                     v.HumanoidRootPart.VectorForce.MaxForce = Vector3.new(-4000, 4000, -4000)
@@ -1751,6 +1902,41 @@ ExploitsGroupBox:AddButton({
         v1.FallDamageStart = 500
     end,
     Tooltip = 'Disable fall animations'
+})
+
+ExploitsGroupBox:AddToggle('InstantOpen', {
+    Text = 'Instant Open',
+    Default = false,
+    Tooltip = 'Toggle instant open on or off',
+    Callback = function(Value)
+        if Value then
+            enableInstantOpen()
+        else
+            disableInstantOpen()
+        end
+    end
+})
+
+ExploitsGroupBox:AddButton({
+    Text = 'Use in Air',
+    Func = function()
+        local NetworkSyncHeartbeat
+        local InteractHeartbeat, FindItemData
+        for Index, Table in pairs(getgc(true)) do
+            if type(Table) == "table" and rawget(Table, "Rate") == 0.05 then
+                InteractHeartbeat = Table.Action
+                FindItemData = getupvalue(InteractHeartbeat, 11)
+            end
+        end
+
+        setupvalue(InteractHeartbeat, 11, function(...)
+            local ReturnArgs = {FindItemData(...)}
+            if ReturnArgs[4] then ReturnArgs[4] = 0 end
+
+            return unpack(ReturnArgs)
+        end)
+    end,
+    Tooltip = 'Enable using items in the air'
 })
 
 HitboxExpanderGroupBox:AddToggle('HitboxExpander', {
@@ -1778,7 +1964,6 @@ HitboxExpanderGroupBox:AddSlider('HitboxSize', {
     end 
 })
 
--- Add a toggle for Silent Aim
 SilentAimGroupBox:AddToggle('SilentAim', {
     Text = 'Enable Silent Aim',
     Default = false,
@@ -1788,7 +1973,6 @@ SilentAimGroupBox:AddToggle('SilentAim', {
     end
 })
 
--- Add a toggle for FOV Circle
 SilentAimGroupBox:AddToggle('FovCircle', {
     Text = 'Enable FOV Circle',
     Default = false,
