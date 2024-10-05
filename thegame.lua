@@ -97,6 +97,9 @@ local activeCorpseDrawings = {}
 
 local InfiniteJumpEnabled = false
 
+local bulletDropEnabled = false
+local bulletDropValue = 0
+
 -- // end of Nigga stuff \\ --
 
 local function createTextDrawing(text, size, color)
@@ -1045,7 +1048,7 @@ UserInputService.InputBegan:Connect(onInputBegan)
 
 local oldIndex
 oldIndex = hookmetamethod(game, "__index", function(self, key)
-    if InfiniteJumpEnabled and tostring(self) == "Humanoid" and key == "State" then
+    if InfiniteJumpEnabled and key == "State" and typeof(self) == "Instance" and self:IsA("Humanoid") then
         local state = oldIndex(self, key)
         if state == Enum.HumanoidStateType.Jumping or state == Enum.HumanoidStateType.Freefall then
             return Enum.HumanoidStateType.Walking
@@ -1534,6 +1537,57 @@ GunModsGroupBox:AddButton({
         end
         
         disableRecoil()
+    end
+})
+
+GunModsGroupBox:AddButton({
+    Text = 'Set Ammo Amount to 1000',
+    Func = function()
+        local str = 'Amount'
+        for i, v in pairs(getgc(true)) do
+            if type(v) == 'table' and rawget(v, str) then
+                coroutine.wrap(function()
+                    while true do
+                        v[str] = 1000
+                        task.wait(math.random(0.1, 1))
+                    end
+                end)()
+            end
+        end
+    end,
+    Tooltip = 'Set the ammo amount to 1000'
+})
+
+GunModsGroupBox:AddToggle('BulletDrop', {
+    Text = 'Bullet Drop',
+    Default = false,
+    Tooltip = 'Toggle bullet drop on or off',
+    Callback = function(Value)
+        bulletDropEnabled = Value
+        local v0 = require(game:GetService("ReplicatedFirst").Framework)
+        local v1 = v0.require("Configs", "Globals")
+        if bulletDropEnabled then
+            v1.ProjectileGravity = bulletDropValue
+        else
+            v1.ProjectileGravity = 0
+        end
+    end
+})
+
+GunModsGroupBox:AddSlider('BulletDropValue', {
+    Text = 'Bullet Drop Value',
+    Default = 0,
+    Min = -100,
+    Max = 100,
+    Rounding = 1,
+    Compact = false,
+    Callback = function(Value)
+        bulletDropValue = Value
+        if bulletDropEnabled then
+            local v0 = require(game:GetService("ReplicatedFirst").Framework)
+            local v1 = v0.require("Configs", "Globals")
+            v1.ProjectileGravity = bulletDropValue
+        end
     end
 })
 
