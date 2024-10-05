@@ -156,9 +156,10 @@ local function updateTextDrawing(drawing, distanceDrawing, position, renderDista
     distanceDrawing.Visible = onScreen
 
     if onScreen then
-        drawing.Position = Vector2.new(screenPosition.X, screenPosition.Y)
+        local textHeight = drawing.TextBounds.Y
+        drawing.Position = Vector2.new(screenPosition.X, screenPosition.Y - textHeight / 2)
         distanceDrawing.Text = string.format("[%.1f studs]", distance)
-        distanceDrawing.Position = Vector2.new(screenPosition.X, screenPosition.Y + 20)
+        distanceDrawing.Position = Vector2.new(screenPosition.X, screenPosition.Y + textHeight / 2)
     end
 end
 
@@ -759,7 +760,7 @@ local function managePlayerESP()
                     local localCharacterPosition = localCharacter.PrimaryPart.Position
                     local distance = (localCharacterPosition - element.PrimaryPart.Position).Magnitude
 
-                    updatePlayerESP(element, element.PrimaryPart.Position, distance)
+                    updateTextDrawing(element.CombinedLabel, element.DistanceLabel, element.PrimaryPart.Position, PlayerRenderDistance)
 
                     if distance > PlayerRenderDistance then
                         element.CombinedLabel.Visible = false
@@ -778,32 +779,6 @@ local function managePlayerESP()
             end
         end
     end)
-
-    Players.PlayerAdded:Connect(function(player)
-        player.CharacterAdded:Connect(function(character)
-            if PlayerESPEnabled then
-                local esp = createPlayerESPElements(character, PlayerESPSize, PlayerESPColor)
-                if esp then
-                    table.insert(activePlayerDrawings, esp)
-                    processedPlayerModels[character] = esp
-                end
-            end
-        end)
-    end)
-
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= Players.LocalPlayer then
-            player.CharacterAdded:Connect(function(character)
-                if PlayerESPEnabled then
-                    local esp = createPlayerESPElements(character, PlayerESPSize, PlayerESPColor)
-                    if esp then
-                        table.insert(activePlayerDrawings, esp)
-                        processedPlayerModels[character] = esp
-                    end
-                end
-            end)
-        end
-    end
 end
 
 LocalPlayer.CharacterAdded:Connect(function(newCharacter)
