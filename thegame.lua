@@ -452,7 +452,6 @@ local function create_esp(model)
 end
 
 local function setup_esp()
-    clearDrawings(activeCorpseDrawings, processedCorpseModels, corpseConnections)
     if not CorpseESPEnabled then return end
 
     local corpsesFolder = workspace:FindFirstChild("Corpses")
@@ -462,17 +461,18 @@ local function setup_esp()
 
     for _, model in ipairs(corpsesFolder:GetChildren()) do
         if model:IsA("Model") and model.PrimaryPart then
-            createESPForModel(model, activeCorpseDrawings, processedCorpseModels, corpseConnections, CorpseESPTextSize, CorpseESPColor, CorpseRenderDistance)
+            create_esp(model)
         end
     end
 
     local childAddedConnection = corpsesFolder.ChildAdded:Connect(function(child)
         if child:IsA("Model") and child.PrimaryPart then
-            createESPForModel(child, activeCorpseDrawings, processedCorpseModels, corpseConnections, CorpseESPTextSize, CorpseESPColor, CorpseRenderDistance)
+            create_esp(child)
         end
     end)
     table.insert(corpseConnections, childAddedConnection)
 end
+
 LocalPlayer.CharacterAdded:Connect(setup_esp)
 
 if LocalPlayer.Character then
@@ -537,14 +537,14 @@ local function manageZombieESP()
     local mobs = workspace.Zombies.Mobs:GetChildren()
     for _, mob in ipairs(mobs) do
         if mob:IsA("Model") then
-            createESPForModel(mob, activeZombieDrawings, processedZombieModels, zombieConnections, ZombieESPSize, ZombieESPColor, ZombieRenderDistance)
+            createZombieESPForModel(mob, activeZombieDrawings, processedZombieModels, zombieConnections, ZombieESPSize, ZombieESPColor, ZombieRenderDistance)
         end
     end
 
     local childAddedConnection
     childAddedConnection = workspace.Zombies.Mobs.ChildAdded:Connect(function(child)
         if ZombieESPEnabled and child:IsA("Model") then
-            createESPForModel(child, activeZombieDrawings, processedZombieModels, zombieConnections, ZombieESPSize, ZombieESPColor, ZombieRenderDistance)
+            createZombieESPForModel(child, activeZombieDrawings, processedZombieModels, zombieConnections, ZombieESPSize, ZombieESPColor, ZombieRenderDistance)
         end
     end)
     table.insert(zombieConnections, childAddedConnection)
@@ -876,20 +876,20 @@ local function resetEventESP()
 end
 
 local function handleEventESP()
-    clearDrawings(activeEventDrawings, processedEventModels, eventConnections)
+    resetEventESP()
     if not EventESPEnabled then return end
 
     local events = workspace.Map.Client.RandomEvents:GetChildren()
     for _, event in ipairs(events) do
         if event:IsA("Model") then
-            createESPForModel(event, activeEventDrawings, processedEventModels, eventConnections, EventESPSize, EventESPColor, EventRenderDistance)
+            createEventESPForModel(event, activeEventDrawings, processedEventModels, eventConnections, EventESPSize, EventESPColor, EventRenderDistance)
         end
     end
 
     local eventConnection
     eventConnection = workspace.Map.Client.RandomEvents.ChildAdded:Connect(function(child)
         if EventESPEnabled and child:IsA("Model") then
-            createESPForModel(child, activeEventDrawings, processedEventModels, eventConnections, EventESPSize, EventESPColor, EventRenderDistance)
+            createEventESPForModel(child, activeEventDrawings, processedEventModels, eventConnections, EventESPSize, EventESPColor, EventRenderDistance)
         end
     end)
     table.insert(eventConnections, eventConnection)
