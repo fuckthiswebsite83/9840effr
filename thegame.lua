@@ -95,6 +95,8 @@ local CorpseRenderDistance = 1000
 local corpseConnections = {}
 local activeCorpseDrawings = {}
 
+local InfiniteJumpEnabled = false
+
 -- // end of Nigga stuff \\ --
 
 local function createTextDrawing(text, size, color)
@@ -663,7 +665,7 @@ local function managePlayerESP()
     if not PlayerESPEnabled then return end
 
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
+        if player ~= Players.LocalPlayer then
             local character = player.Character
             if character then
                 local esp = createPlayerESPElements(character, PlayerESPSize, PlayerESPColor)
@@ -677,7 +679,7 @@ local function managePlayerESP()
 
     local playerAddedConnection
     playerAddedConnection = Players.PlayerAdded:Connect(function(player)
-        if player ~= LocalPlayer then
+        if player ~= Players.LocalPlayer then
             local function onCharacterAdded(character)
                 if PlayerESPEnabled then
                     local esp = createPlayerESPElements(character, PlayerESPSize, PlayerESPColor)
@@ -957,13 +959,13 @@ local function onPlayerAdded(player)
     end)
 end
 
-for _, player in pairs(game:GetService('Players'):GetPlayers()) do
-    if player ~= LocalPlayer then
+for _, player in pairs(Players:GetPlayers()) do
+    if player ~= Players.LocalPlayer then
         onPlayerAdded(player)
     end
 end
 
-game:GetService('Players').PlayerAdded:Connect(onPlayerAdded)
+Players.PlayerAdded:Connect(onPlayerAdded)
 
 local oldIndex = nil
 oldIndex = hookmetamethod(game, "__index", function(self, index)
@@ -1026,6 +1028,32 @@ mt.__newindex = newcclosure(function(self, key, value)
 end)
 
 setreadonly(mt, true)
+
+local function onInputBegan(input)
+    if InfiniteJumpEnabled and input.KeyCode == Enum.KeyCode.Space and not UserInputService:GetFocusedTextBox() then
+        local player = Players.LocalPlayer
+        if player and player.Character then
+            local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end
+    end
+end
+
+UserInputService.InputBegan:Connect(onInputBegan)
+
+local oldIndex
+oldIndex = hookmetamethod(game, "__index", function(self, key)
+    if InfiniteJumpEnabled and tostring(self) == "Humanoid" and key == "State" then
+        local state = oldIndex(self, key)
+        if state == Enum.HumanoidStateType.Jumping or state == Enum.HumanoidStateType.Freefall then
+            return Enum.HumanoidStateType.Walking
+        end
+        return state
+    end
+    return oldIndex(self, key)
+end)
 
 ItemESPGroupBox:AddToggle('ItemESP', {
     Text = 'Item ESP',
@@ -1581,6 +1609,15 @@ MovementGroupBox:AddSlider('TpWalkSpeed', {
     Callback = function(Value) 
         TpWalkSpeed = Value 
     end 
+})
+
+MovementGroupBox:AddToggle('InfiniteJump', {
+    Text = 'Infinite Jump',
+    Default = false,
+    Tooltip = 'Toggle infinite jump on or off',
+    Callback = function(Value)
+        InfiniteJumpEnabled = Value
+    end
 })
 
 ExploitsGroupBox:AddButton({
