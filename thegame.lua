@@ -270,6 +270,8 @@ local function updatePlayerESP(element, position, distance)
         if onScreen and distance <= PlayerRenderDistance then
             local model = element.Model
             local cframe, size = model:GetBoundingBox()
+            local hitboxSize = HitboxExpanderEnabled and HitboxSize or 1
+            size = size * hitboxSize
             local min = cframe.Position - size / 2
             local max = cframe.Position + size / 2
             local minScreenPos, onScreenMin = camera:WorldToViewportPoint(min)
