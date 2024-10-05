@@ -293,6 +293,8 @@ local function updatePlayerESP(element, position, distance)
             if element.Box then
                 local boxHeight = element.Box.Size.Y
                 element.CombinedLabel.Position = Vector2.new(screenPosition.X, screenPosition.Y + boxHeight / 2 + 20)
+            else
+                element.CombinedLabel.Position = Vector2.new(screenPosition.X, screenPosition.Y + 20)
             end
 
             element.LastHealth = health
