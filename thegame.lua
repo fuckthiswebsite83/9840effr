@@ -101,9 +101,6 @@ local InfiniteJumpEnabled = false
 local bulletDropEnabled = false
 local bulletDropValue = 0
 
-local SilentAimEnabled = false
-local FovCircleEnabled = false
-
 -- // end of Nigga stuff \\ --
 
 local function createTextDrawing(text, size, color)
@@ -118,9 +115,18 @@ local function createTextDrawing(text, size, color)
 end
 
 local function updateTextDrawing(drawing, distanceDrawing, position, renderDistance)
-    local screenPosition, onScreen = workspace.CurrentCamera:WorldToViewportPoint(position)
-    local localCharacter = Players.LocalPlayer.Character
-    local humanoidRootPart = localCharacter and localCharacter:FindFirstChild("HumanoidRootPart")
+    local currentCamera = workspace.CurrentCamera
+    local localPlayer = Players.LocalPlayer
+    local localCharacter = localPlayer and localPlayer.Character
+
+    if not currentCamera or not localCharacter then
+        drawing.Visible = false
+        distanceDrawing.Visible = false
+        return
+    end
+
+    local screenPosition, onScreen = currentCamera:WorldToViewportPoint(position)
+    local humanoidRootPart = localCharacter:FindFirstChild("HumanoidRootPart")
     local distance = humanoidRootPart and (humanoidRootPart.Position - position).Magnitude or 0
 
     if distance > renderDistance then
@@ -249,6 +255,8 @@ local function createDrawing(type, text, size, color)
 end
 
 local function updatePlayerESP(element, position, distance)
+    if not element then return end
+
     local camera = workspace.CurrentCamera
     local screenPosition, onScreen = camera:WorldToViewportPoint(position)
 
@@ -751,6 +759,34 @@ local function managePlayerESP()
             end
         end
     end)
+
+    -- Ensure ESP is applied to players who spawn in after the toggle is set
+    Players.PlayerAdded:Connect(function(player)
+        player.CharacterAdded:Connect(function(character)
+            if PlayerESPEnabled then
+                local esp = createPlayerESPElements(character, PlayerESPSize, PlayerESPColor)
+                if esp then
+                    table.insert(activePlayerDrawings, esp)
+                    processedPlayerModels[character] = esp
+                end
+            end
+        end)
+    end)
+
+    -- Ensure ESP is applied to players who render in after the toggle is set
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= Players.LocalPlayer then
+            player.CharacterAdded:Connect(function(character)
+                if PlayerESPEnabled then
+                    local esp = createPlayerESPElements(character, PlayerESPSize, PlayerESPColor)
+                    if esp then
+                        table.insert(activePlayerDrawings, esp)
+                        processedPlayerModels[character] = esp
+                    end
+                end
+            end)
+        end
+    end
 end
 
 LocalPlayer.CharacterAdded:Connect(function(newCharacter)
@@ -1061,222 +1097,6 @@ oldIndex = hookmetamethod(game, "__index", function(self, key)
     end
     return oldIndex(self, key)
 end)
-
-task.spawn(function()
-    local scriptContext = game:GetService("ScriptContext")
-    local function disableErrorConnections()
-        for _, v in pairs(getconnections(scriptContext.Error)) do
-            v:Disable()
-        end
-    end
-    disableErrorConnections()
-    while task.wait(0.1) do
-        disableErrorConnections()
-    end
-end)
-
-local Framework = require(game:GetService("ReplicatedFirst"):WaitForChild("Framework"))
-Framework:WaitForLoaded()
-repeat task.wait() until Framework.Classes.Players.get()
-local PlayerClass = Framework.Classes.Players.get()
-local Network = Framework.Libraries.Network
-local Bullets = Framework.Libraries.Bullets
-local Drawing = Drawing or require(game:GetService("ReplicatedFirst"):WaitForChild("Drawing"))
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local LocalPlayer = Players.LocalPlayer
-
-local plrs = game:GetService("Players")
-local plr = plrs.LocalPlayer
-local mouse = plr:GetMouse()
-local camera = game:GetService("Workspace").CurrentCamera
-local runService = game:GetService("RunService")
-
-local function get_target()
-    if not SilentAimEnabled then return nil end
-    local current_target = nil
-    local minimum_distance = math.huge
-
-    for _, v in pairs(plrs:GetPlayers()) do
-        if v ~= plr and v.Character and v.Character:FindFirstChild("Head") then
-            local position, on_screen = camera:WorldToScreenPoint(v.Character.Head.Position)
-            if on_screen then
-                local distance = (Vector2.new(position.X, position.Y) - Vector2.new(mouse.X, mouse.Y)).Magnitude
-                if distance < minimum_distance then
-                    current_target = v.Character.Head
-                    minimum_distance = distance
-                end
-            end
-        end
-    end
-    return current_target
-end
-
-local CircleInline = Drawing.new("Circle")
-CircleInline.Transparency = 1
-CircleInline.Thickness = 1
-CircleInline.ZIndex = 2
-CircleInline.Position = camera.ViewportSize / 2
-CircleInline.Radius = 200
-CircleInline.Color = Color3.new(1, 1, 1)
-CircleInline.Visible = FovCircleEnabled
-
-local function updateFovCircle()
-    local viewportSize = camera.ViewportSize
-    CircleInline.Position = Vector2.new(viewportSize.X * 0.5, viewportSize.Y * 0.5)
-end
-
-local SanityBans = {
-    "Chat Message Send", "Ping Return", "Bullet Impact Interaction", "Crouch Audio Mute", "Zombie Pushback Force Request",
-    "Camera CFrame Report",
-    "Movestate Sync Request", "Update Character Position", "Map Icon History Sync", "Playerlist Staff Icon Get",
-    "Request Physics State Sync",
-    "Inventory Sync Request", "Wardrobe Resync Request", "Door Interact ", "Sorry Mate, Wrong Path :/"
-}
-local NetworkSyncHeartbeat
-local Globals = Framework.Configs.Globals
-local ProjectileGravity = Globals.ProjectileGravity
-local ProjectileSpeed = 1000
-
-local function HookCharacter(Character)
-    for _, Item in pairs(PlayerClass.Character.Maid.Items) do
-        if type(Item) == "table" and rawget(Item, "Action") then
-            if table.find(debug.getconstants(Item.Action), "Network sync") then
-                NetworkSyncHeartbeat = Item.Action
-            end
-        end
-    end
-    local OldEquip = Character.Equip
-    Character.Equip = function(Self, Item, ...)
-        if Item.FireConfig and Item.FireConfig.MuzzleVelocity then
-            ProjectileSpeed = Item.FireConfig.MuzzleVelocity * Globals.MuzzleVelocityMod
-        end
-
-        return OldEquip(Self, Item, ...)
-    end
-end
-
-if PlayerClass.Character then
-    HookCharacter(PlayerClass.Character)
-end
-
-PlayerClass.CharacterAdded:Connect(function(Character)
-    HookCharacter(Character)
-end)
-
-local GetSpreadAngle = getupvalue(Bullets.Fire, 1)
-setupvalue(Bullets.Fire, 1, function(Character, CCamera, Weapon, ...)
-    local OldMoveState = Character.MoveState
-    local OldZooming = Character.Zooming
-    local OldFirstPerson = CCamera.FirstPerson
-    Character.MoveState = "Walking"
-    Character.Zooming = true
-    CCamera.FirstPerson = true
-    local ReturnArgs = {GetSpreadAngle(Character, CCamera, Weapon, ...)}
-    Character.MoveState = OldMoveState
-    Character.Zooming = OldZooming
-    CCamera.FirstPerson = OldFirstPerson
-    return unpack(ReturnArgs)
-end)
-
-local function GetStates()
-    if not NetworkSyncHeartbeat then return {} end
-    local Seed = debug.getupvalue(NetworkSyncHeartbeat, 6)
-    local RandomData = {}
-    local SeededRandom = Random.new(Seed)
-    local Data = {
-        "ServerTime",
-        "RootCFrame",
-        "RootVelocity",
-        "FirstPerson",
-        "InstanceCFrame",
-        "LookDirection",
-        "MoveState",
-        "AtEaseInput",
-        "ShoulderSwapped",
-        "Zooming",
-        "BinocsActive",
-        "Staggered",
-        "Shoving"
-    }
-    local DataLength = #Data
-    while #Data > 0 do
-        local ToRemove = SeededRandom:NextInteger(1, DataLength)
-        ToRemove = ToRemove % #Data == 0 and #Data or ToRemove % #Data
-        local Removed = table.remove(Data, ToRemove)
-        table.insert(RandomData, Removed)
-    end
-    return RandomData
-end
-
-local function SolveTrajectory(Origin, Velocity, Time, Gravity)
-    Gravity = Vector3.new(0, math.abs(Gravity), 0)
-    return Origin + (Velocity * Time) + (Gravity * Time * Time)
-end
-
-local NewSend = function(OldSend, Self, Name, ...)
-    if table.find(SanityBans, Name) then
-        return
-    end
-    return OldSend(Self, Name, ...)
-end
-
-local NewFetch = function(OldFetch, Self, Name, ...)
-    if table.find(SanityBans, Name) then
-        return
-    end
-    if Name == "Character State Report" then
-        local RandomData = GetStates()
-        local Args = {...}
-        for Index = 1, #Args do
-            if RandomData[Index] == "MoveState" then
-                Args[Index] = "Climbing"
-            end
-        end
-        return OldFetch(Self, Name, unpack(Args))
-    end
-    return OldFetch(Self, Name, ...)
-end
-
-local NewFire = function(OldFire, Self, ...)
-    local Args = { ... }
-    local target = get_target() 
-    if target then
-        local Position = target.Position
-        local Direction = Position - Args[4]
-        Position = SolveTrajectory(Position , target.Parent.HumanoidRootPart.AssemblyLinearVelocity, Direction.Magnitude / ProjectileSpeed, ProjectileGravity)
-        local ProjectileDirection = (Position - Args[4]).Unit
-local mt = getrawmetatable(game)
-setreadonly(mt, false)
-
-local OldNamecall = mt.__namecall
-mt.__namecall = newcclosure(function(Self, ...)
-    local method = getnamecallmethod()
-    if method == "Fire" and Self == Bullets then
-        return NewFire(OldNamecall, Self, ...)
-    elseif method == "Send" and Self == Network then
-        return NewSend(OldNamecall, Self, ...)
-    elseif method == "Fetch" and Self == Network then
-        return NewFetch(OldNamecall, Self, ...)
-    end
-    return OldNamecall(Self, ...)
-end)
-
-setreadonly(mt, true)
-    end
-    return OldFetch(Self, ...)
-end)
-
-setreadonly(mt, true)
-
-runService.RenderStepped:Connect(function()
-    if FovCircleEnabled then
-        updateFovCircle()
-    end
-end)
-
-print('Loaded Silent Aim')
 
 ItemESPGroupBox:AddToggle('ItemESP', {
     Text = 'Item ESP',
