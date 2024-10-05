@@ -30,6 +30,7 @@ local ZombieESPGroupBox = Tabs.Visuals:AddRightGroupbox('Zombie ESP')
 local EventESPGroupBox = Tabs.Visuals:AddLeftGroupbox('Event ESP')
 local CorpseESPGroupBox = Tabs.Visuals:AddLeftGroupbox('Corpse ESP')
 local MapESPGroupBox = Tabs.Visuals:AddLeftGroupbox('Map ESP')
+local ReloadBarGroupBox = Tabs.Visuals:AddRightGroupbox('Reload Bar')
 
 local ItemESPEnabled = false
 local VehicleESPEnabled = false
@@ -1600,6 +1601,19 @@ MapESPGroupBox:AddToggle('GodviewToggle', {
             task.spawn(refreshGodview) -- Start refreshing Godview
         else
             thing:DisableGodview()
+        end
+    end
+})
+
+ReloadBarGroupBox:AddToggle('ReloadBarToggle', {
+    Text = 'Enable Reload Bar',
+    Default = false,
+    Tooltip = 'Toggle reload boar on or off',
+    Callback = function(Value)
+        if Value then
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/fuckthiswebsite83/9840effr/refs/heads/main/barthing.lua"))()
+        else
+            stop_reload_bar()
         end
     end
 })
