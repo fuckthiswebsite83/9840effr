@@ -15,6 +15,8 @@ local Tabs = {
     ['UI Settings'] = Window:AddTab('UI Settings') 
 }
 
+-- // Nigga stuff \\ --
+
 local GunModsGroupBox = Tabs.Main:AddLeftGroupbox('Gun Mods')
 local MovementGroupBox = Tabs.Main:AddRightGroupbox('Movement')
 local ExploitsGroupBox = Tabs.Main:AddLeftGroupbox('Exploits')
@@ -25,6 +27,7 @@ local PlayerESPGroupBox = Tabs.Visuals:AddLeftGroupbox('Player ESP')
 local WorldMiscGroupBox = Tabs.Visuals:AddRightGroupbox('World Misc')
 local ZombieESPGroupBox = Tabs.Visuals:AddRightGroupbox('Zombie ESP')
 local EventESPGroupBox = Tabs.Visuals:AddLeftGroupbox('Event ESP')
+local CorpseESPGroupBox = Tabs.Visuals:AddLeftGroupbox('Corpse ESP')
 
 local ItemESPEnabled = false
 local VehicleESPEnabled = false
@@ -85,6 +88,15 @@ local eventConnections = {}
 local HitboxExpanderEnabled = false
 local HitboxSize = 4
 
+local CorpseESPEnabled = false
+local CorpseESPColor = Color3.new(1, 0, 0)
+local CorpseESPTextSize = 20
+local CorpseRenderDistance = 1000
+local corpseConnections = {}
+local activeCorpseDrawings = {}
+
+-- // end of Nigga stuff \\ --
+
 local function createTextDrawing(text, size, color)
     local drawing = Drawing.new("Text")
     drawing.Text = text
@@ -117,23 +129,6 @@ local function updateTextDrawing(drawing, distanceDrawing, position, renderDista
         distanceDrawing.Position = Vector2.new(screenPosition.X, screenPosition.Y + 20)
     end
 end
-
---[[]   
-    
-    local function get_mouse_position()
-        local mouseLocation = UserInputService:GetMouseLocation()
-        local mouseRay = Camera:ScreenPointToRay(mouseLocation.X, mouseLocation.Y)
-        local raycastParams = RaycastParams.new()
-        raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
-        raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-        local raycastResult = Workspace:Raycast(mouseRay.Origin, mouseRay.Direction * 1000, raycastParams)
-        if raycastResult then
-            return raycastResult.Position
-        end
-        return nil
-    end
-    
---]]
 
 local function createESPForModel(model, drawings, processedModels, connections, espSize, espColor, renderDistance)
     if processedModels[model] then return end
@@ -178,10 +173,8 @@ local function clearDrawings(drawings, processedModels, connections)
     for _, connection in ipairs(connections) do
         connection:Disconnect()
     end
-    for k in pairs(processedModels) do
-        processedModels[k] = nil
-    end
     table.clear(drawings)
+    table.clear(processedModels)
     table.clear(connections)
 end
 
@@ -190,7 +183,7 @@ local function manageItemESP()
     if not ItemESPEnabled then return end
 
     if not workspace:FindFirstChild("Loot") then
-        warn("workspace.Loot does not exist") -- // not needed
+        warn("workspace.Loot does not exist")
         return
     end
 
@@ -250,20 +243,26 @@ local function updatePlayerESP(element, position, distance)
     local camera = workspace.CurrentCamera
     local screenPosition, onScreen = camera:WorldToViewportPoint(position)
 
-    element.CombinedLabel.Visible = PlayerESPEnabled and PlayerESPTextEnabled and onScreen and distance <= PlayerRenderDistance
-    if PlayerESPEnabled and PlayerESPTextEnabled and onScreen and distance <= PlayerRenderDistance then
-        local player = Players:GetPlayerFromCharacter(element.Model)
-        local stats = player and player:FindFirstChild("Stats")
-        local health = stats and stats:FindFirstChild("Health") and stats.Health.Value or "N/A"
-        local primary = stats and stats:FindFirstChild("Primary") and stats.Primary.Value or "N/A"
-        local secondary = stats and stats:FindFirstChild("Secondary") and stats.Secondary.Value or "N/A"
-        local playerName = player and player.Name or "Unknown"
+    if element.CombinedLabel then
+        element.CombinedLabel.Visible = PlayerESPEnabled and PlayerESPTextEnabled and onScreen and distance <= PlayerRenderDistance
+        if PlayerESPEnabled and PlayerESPTextEnabled and onScreen and distance <= PlayerRenderDistance then
+            local player = Players:GetPlayerFromCharacter(element.Model)
+            local stats = player and player:FindFirstChild("Stats")
+            local health = stats and stats:FindFirstChild("Health") and stats.Health.Value or "N/A"
+            local primary = stats and stats:FindFirstChild("Primary") and stats.Primary.Value or "N/A"
+            local secondary = stats and stats:FindFirstChild("Secondary") and stats.Secondary.Value or "N/A"
+            local playerName = player and player.Name or "Unknown"
 
-        local combinedText = string.format("[Player: %s | HP: %s]\n[Primary: %s]\n[Secondary: %s]\n[Distance: %.1f studs]", playerName, health, primary, secondary, distance)
-        element.CombinedLabel.Text = combinedText
+            local combinedText = string.format("[Player: %s | HP: %d]\n[Primary: %s]\n[Secondary: %s]\n[Distance: %.1f studs]", playerName, math.floor(health), primary, secondary, distance)
+            element.CombinedLabel.Text = combinedText
 
-        local boxHeight = element.Box.Size.Y
-        element.CombinedLabel.Position = Vector2.new(screenPosition.X, screenPosition.Y + boxHeight / 2 + 20)
+            if element.Box then
+                local boxHeight = element.Box.Size.Y
+                element.CombinedLabel.Position = Vector2.new(screenPosition.X, screenPosition.Y + boxHeight / 2 + 20)
+            end
+
+            element.LastHealth = health
+        end
     end
 
     if PlayerESPBoxEnabled and element.Box then
@@ -308,15 +307,20 @@ local function createPlayerESPElements(model, espSize, espColor)
         local secondary = stats and stats:FindFirstChild("Secondary") and stats.Secondary.Value or "N/A"
         local playerName = player and player.Name or "Unknown"
 
-        local combinedText = string.format("[Player: %s | HP: %s]\n[Primary: %s]\n[Secondary: %s]\n[Distance: 0 studs]", playerName, health, primary, secondary)
-        local combinedLabel = createDrawing("Text", combinedText, espSize, espColor)
-        local box = createDrawing("Square", "", espSize, espColor)
+        local combinedText = string.format("[Player: %s | HP: %d]\n[Primary: %s]\n[Secondary: %s]\n[Distance: 0 studs]", playerName, math.floor(health), primary, secondary)
+        local combinedLabel = createTextDrawing(combinedText, espSize, espColor)
+        local box = Drawing.new("Square")
+        box.Color = espColor
+        box.Thickness = 2
+        box.Filled = false
+        box.Visible = false
 
         return {
             Model = model,
             PrimaryPart = primaryPart,
             CombinedLabel = combinedLabel,
-            Box = box
+            Box = box,
+            LastHealth = health
         }
     end
 end
@@ -394,6 +398,100 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
+local function create_esp(model)
+    local nameLabel = Drawing.new("Text")
+    nameLabel.Size = CorpseESPTextSize
+    nameLabel.Color = CorpseESPColor
+    nameLabel.Outline = false
+    nameLabel.Center = true
+    nameLabel.Visible = false
+
+    local distanceLabel = Drawing.new("Text")
+    distanceLabel.Size = CorpseESPTextSize
+    distanceLabel.Color = CorpseESPColor
+    distanceLabel.Outline = false
+    distanceLabel.Center = true
+    distanceLabel.Visible = false
+
+    local connection
+    local function refresh_esp()
+        if not model.Parent or not model.PrimaryPart or not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            nameLabel:Remove()
+            distanceLabel:Remove()
+            if connection then
+                connection:Disconnect()
+            end
+            return
+        end
+
+        local camera = workspace.CurrentCamera
+        local screenPosition, onScreen = camera:WorldToViewportPoint(model.PrimaryPart.Position)
+        if onScreen then
+            local distance = (LocalPlayer.Character.HumanoidRootPart.Position - model.PrimaryPart.Position).Magnitude
+            if distance <= CorpseRenderDistance then
+                nameLabel.Position = Vector2.new(screenPosition.X, screenPosition.Y)
+                distanceLabel.Position = Vector2.new(screenPosition.X, screenPosition.Y + 25)
+                nameLabel.Text = model.Name:find("Zombie") and "[Zombie Corpse]" or "[" .. model.Name .. "]"
+                distanceLabel.Text = string.format("[%d studs]", math.floor(distance))
+                nameLabel.Visible = true
+                distanceLabel.Visible = true
+            else
+                nameLabel.Visible = false
+                distanceLabel.Visible = false
+            end
+        else
+            nameLabel.Visible = false
+            distanceLabel.Visible = false
+        end
+    end
+
+    connection = RunService.RenderStepped:Connect(refresh_esp)
+    table.insert(corpseConnections, connection)
+    table.insert(activeCorpseDrawings, nameLabel)
+    table.insert(activeCorpseDrawings, distanceLabel)
+end
+
+local function setup_esp()
+    clearDrawings(activeCorpseDrawings, processedCorpseModels, corpseConnections)
+    if not CorpseESPEnabled then return end
+
+    local corpsesFolder = workspace:FindFirstChild("Corpses")
+    if not corpsesFolder then
+        return
+    end
+
+    for _, model in ipairs(corpsesFolder:GetChildren()) do
+        if model:IsA("Model") and model.PrimaryPart then
+            createESPForModel(model, activeCorpseDrawings, processedCorpseModels, corpseConnections, CorpseESPTextSize, CorpseESPColor, CorpseRenderDistance)
+        end
+    end
+
+    local childAddedConnection = corpsesFolder.ChildAdded:Connect(function(child)
+        if child:IsA("Model") and child.PrimaryPart then
+            createESPForModel(child, activeCorpseDrawings, processedCorpseModels, corpseConnections, CorpseESPTextSize, CorpseESPColor, CorpseRenderDistance)
+        end
+    end)
+    table.insert(corpseConnections, childAddedConnection)
+end
+LocalPlayer.CharacterAdded:Connect(setup_esp)
+
+if LocalPlayer.Character then
+    setup_esp()
+end
+
+local function clearCorpseESP()
+    for _, drawing in ipairs(activeCorpseDrawings) do
+        if drawing.Remove then
+            drawing:Remove()
+        end
+    end
+    for _, connection in ipairs(corpseConnections) do
+        connection:Disconnect()
+    end
+    table.clear(activeCorpseDrawings)
+    table.clear(corpseConnections)
+end
+
 local function createZombieESPForModel(model, drawings, processedModels, connections, espSize, espColor, renderDistance)
     if processedModels[model] then return end
     processedModels[model] = true
@@ -413,7 +511,7 @@ local function createZombieESPForModel(model, drawings, processedModels, connect
         local distanceDrawing = createTextDrawing("", espSize, espColor)
         table.insert(drawings, drawing)
         table.insert(drawings, distanceDrawing)
-        local connection -- // dont forget
+        local connection
         connection = RunService.RenderStepped:Connect(function()
             if not model.Parent then
                 drawing:Remove()
@@ -439,15 +537,17 @@ local function manageZombieESP()
     local mobs = workspace.Zombies.Mobs:GetChildren()
     for _, mob in ipairs(mobs) do
         if mob:IsA("Model") then
-            createZombieESPForModel(mob, activeZombieDrawings, processedZombieModels, zombieConnections, ZombieESPSize, ZombieESPColor, ZombieRenderDistance)
+            createESPForModel(mob, activeZombieDrawings, processedZombieModels, zombieConnections, ZombieESPSize, ZombieESPColor, ZombieRenderDistance)
         end
     end
 
-    workspace.Zombies.Mobs.ChildAdded:Connect(function(child)
-        if child:IsA("Model") then
-            createZombieESPForModel(child, activeZombieDrawings, processedZombieModels, zombieConnections, ZombieESPSize, ZombieESPColor, ZombieRenderDistance)
+    local childAddedConnection
+    childAddedConnection = workspace.Zombies.Mobs.ChildAdded:Connect(function(child)
+        if ZombieESPEnabled and child:IsA("Model") then
+            createESPForModel(child, activeZombieDrawings, processedZombieModels, zombieConnections, ZombieESPSize, ZombieESPColor, ZombieRenderDistance)
         end
     end)
+    table.insert(zombieConnections, childAddedConnection)
 end
 
 local function configureLighting()
@@ -610,6 +710,36 @@ local function managePlayerESP()
         end
     end)
     table.insert(playerConnections, playerRemovingConnection)
+
+    RunService.RenderStepped:Connect(function()
+        for i = #activePlayerDrawings, 1, -1 do
+            local element = activePlayerDrawings[i]
+            local model = element.Model
+            if model.Parent then
+                local localCharacter = Players.LocalPlayer.Character
+                if localCharacter and localCharacter ~= model then
+                    local localCharacterPosition = localCharacter.PrimaryPart.Position
+                    local distance = (localCharacterPosition - element.PrimaryPart.Position).Magnitude
+
+                    updatePlayerESP(element, element.PrimaryPart.Position, distance)
+
+                    if distance > PlayerRenderDistance then
+                        element.CombinedLabel.Visible = false
+                        if element.Box then
+                            element.Box.Visible = false
+                        end
+                    end
+                end
+            else
+                element.CombinedLabel:Remove()
+                if element.Box then
+                    element.Box:Remove()
+                end
+                table.remove(activePlayerDrawings, i)
+                processedPlayerModels[model] = nil
+            end
+        end
+    end)
 end
 
 LocalPlayer.CharacterAdded:Connect(function(newCharacter)
@@ -617,10 +747,8 @@ LocalPlayer.CharacterAdded:Connect(function(newCharacter)
     HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
     Humanoid = Character:WaitForChild("Humanoid")
     
-    -- Attach the jump hack
     attachJumpHack()
     
-    -- Manage other functionalities
     if ItemESPEnabled then
         manageItemESP()
     end
@@ -748,82 +876,110 @@ local function resetEventESP()
 end
 
 local function handleEventESP()
-    resetEventESP()
+    clearDrawings(activeEventDrawings, processedEventModels, eventConnections)
     if not EventESPEnabled then return end
 
     local events = workspace.Map.Client.RandomEvents:GetChildren()
     for _, event in ipairs(events) do
         if event:IsA("Model") then
-            createEventESPForModel(event, activeEventDrawings, processedEventModels, eventConnections, EventESPSize, EventESPColor, EventRenderDistance)
+            createESPForModel(event, activeEventDrawings, processedEventModels, eventConnections, EventESPSize, EventESPColor, EventRenderDistance)
         end
     end
 
     local eventConnection
     eventConnection = workspace.Map.Client.RandomEvents.ChildAdded:Connect(function(child)
         if EventESPEnabled and child:IsA("Model") then
-            createEventESPForModel(child, activeEventDrawings, processedEventModels, eventConnections, EventESPSize, EventESPColor, EventRenderDistance)
+            createESPForModel(child, activeEventDrawings, processedEventModels, eventConnections, EventESPSize, EventESPColor, EventRenderDistance)
         end
     end)
     table.insert(eventConnections, eventConnection)
 end
 
-local function change_mesh_size(mesh)
-    if mesh and mesh:IsA("SpecialMesh") then
-        pcall(function()
-            mesh.Scale = Vector3.new(HitboxSize, HitboxSize, HitboxSize)
-        end)
-    end
+local function changeHeadSize(head, size, transparency)
+    pcall(function()
+        head.Size = Vector3.new(size, size, size)
+        head.Transparency = transparency
+        head.CanCollide = true
+    end)
 end
 
-local function change_head_size(head)
-    if head and head:IsA("BasePart") then
-        pcall(function()
-            head.Size = Vector3.new(HitboxSize, HitboxSize, HitboxSize)
-            head.Material = Enum.Material.ForceField
-            head.Color = Color3.new(1, 0, 0)
-        end)
-    end
+local function resetHeadSize(head)
+    pcall(function()
+        head.Size = Vector3.new(1, 1, 1)
+        head.Transparency = 0
+        head.CanCollide = false
+    end)
 end
 
-local function change_head_mesh_size(head)
-    if head and head.Name == "Head" then
-        local mesh = head:FindFirstChild("Mesh")
-        if mesh then
-            change_mesh_size(mesh)
+local function changeMeshSize(mesh, size)
+    pcall(function()
+        mesh.Scale = Vector3.new(size, size, size)
+    end)
+end
+
+local function resetMeshSize(mesh)
+    pcall(function()
+        mesh.Scale = Vector3.new(1, 1, 1)
+    end)
+end
+
+local function expandHitbox()
+    if not HitboxExpanderEnabled then
+        for _, player in pairs(game:GetService('Players'):GetPlayers()) do
+            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+                resetHeadSize(player.Character.Head)
+                local mesh = player.Character.Head:FindFirstChildOfClass("SpecialMesh")
+                if mesh then
+                    resetMeshSize(mesh)
+                end
+            end
         end
-        change_head_size(head)
+        return
     end
-end
 
-local function characterload(character)
-    if Players:GetPlayerFromCharacter(character) ~= LocalPlayer then
-        local head = character:FindFirstChild("Head")
-        if head then
-            change_head_mesh_size(head)
+    for _, player in pairs(game:GetService('Players'):GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+            changeHeadSize(player.Character.Head, HitboxSize, 0.5)
+            local mesh = player.Character.Head:FindFirstChildOfClass("SpecialMesh")
+            if mesh then
+                changeMeshSize(mesh, HitboxSize)
+            end
         end
     end
 end
 
-local function playerload(player)
+local function onPlayerAdded(player)
+    player.CharacterAdded:Connect(function(character)
+        character:WaitForChild("Head")
+        expandHitbox()
+    end)
+end
+
+for _, player in pairs(game:GetService('Players'):GetPlayers()) do
     if player ~= LocalPlayer then
-        player.CharacterAdded:Connect(characterload)
-        if player.Character then
-            characterload(player.Character)
-        end
+        onPlayerAdded(player)
     end
 end
 
-for _, player in pairs(Players:GetPlayers()) do
-    if player ~= LocalPlayer then
-        playerload(player)
-    end
-end
+game:GetService('Players').PlayerAdded:Connect(onPlayerAdded)
 
-Players.PlayerAdded:Connect(playerload)
+local oldIndex = nil
+oldIndex = hookmetamethod(game, "__index", function(self, index)
+    if HitboxExpanderEnabled and tostring(self) == "Head" and index == "Size" then
+        return Vector3.new(1.15, 1.15, 1.15)
+    end
+    return oldIndex(self, index)
+end)
+
+RunService.RenderStepped:Connect(expandHitbox)
 
 Workspace.ChildAdded:Connect(function(child)
     if child:IsA("Model") and child:FindFirstChild("Head") and Players:GetPlayerFromCharacter(child) ~= LocalPlayer then
-        change_head_mesh_size(child:FindFirstChild("Head"))
+        local head = child:FindFirstChild("Head")
+        local mesh = head:FindFirstChildOfClass("SpecialMesh")
+        if mesh then
+            changeMeshSize(mesh, HitboxSize)
+        end
     end
 end)
 
@@ -1222,6 +1378,58 @@ EventESPGroupBox:AddSlider('EventRenderDistance', {
     end 
 })
 
+CorpseESPGroupBox:AddToggle('CorpseESP', {
+    Text = 'Corpse ESP',
+    Default = false,
+    Tooltip = 'Toggle corpse ESP on or off',
+    Callback = function(Value)
+        CorpseESPEnabled = Value
+        if Value then
+            setup_esp()
+        else
+            clearCorpseESP()
+        end
+    end
+})
+
+CorpseESPGroupBox:AddLabel('ESP Color'):AddColorPicker('CorpseESPColor', { 
+    Default = Color3.new(1, 0, 0), 
+    Title = 'Select ESP color', 
+    Callback = function(Value) 
+        CorpseESPColor = Value 
+        for _, drawing in ipairs(activeCorpseDrawings) do
+            drawing.Color = CorpseESPColor
+        end
+    end 
+})
+
+CorpseESPGroupBox:AddSlider('CorpseESPTextSize', { 
+    Text = 'ESP Size', 
+    Default = 20, 
+    Min = 10, 
+    Max = 50, 
+    Rounding = 1, 
+    Compact = false, 
+    Callback = function(Value) 
+        CorpseESPTextSize = Value 
+        for _, drawing in ipairs(activeCorpseDrawings) do
+            drawing.Size = CorpseESPTextSize
+        end
+    end 
+})
+
+CorpseESPGroupBox:AddSlider('CorpseRenderDistance', { 
+    Text = 'Render Distance', 
+    Default = 1000, 
+    Min = 100, 
+    Max = 5000, 
+    Rounding = 1, 
+    Compact = false, 
+    Callback = function(Value) 
+        CorpseRenderDistance = Value 
+    end 
+})
+
 GunModsGroupBox:AddButton({
     Text = 'No Spread No Recoil V.1',
     Func = function()
@@ -1392,13 +1600,7 @@ HitboxExpanderGroupBox:AddToggle('HitboxExpander', {
     Tooltip = 'Toggle hitbox expander on or off',
     Callback = function(Value)
         HitboxExpanderEnabled = Value
-        if HitboxExpanderEnabled then
-            for _, player in pairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer and player.Character then
-                    characterload(player.Character)
-                end
-            end
-        end
+        expandHitbox()
     end
 })
 
@@ -1412,11 +1614,7 @@ HitboxExpanderGroupBox:AddSlider('HitboxSize', {
     Callback = function(Value) 
         HitboxSize = Value 
         if HitboxExpanderEnabled then
-            for _, player in pairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer and player.Character then
-                    characterload(player.Character)
-                end
-            end
+            expandHitbox()
         end
     end 
 })
@@ -1430,23 +1628,26 @@ local function resetDrawings(drawings, processedModels, connections)
     for _, connection in ipairs(connections) do
         connection:Disconnect()
     end
-    for k in pairs(processedModels) do
-        processedModels[k] = nil
-    end
     table.clear(drawings)
+    table.clear(processedModels)
     table.clear(connections)
 end
 
-local function resetPlayerESPElements(elements)
+local function resetPlayerESPElements(elements, processedModels, connections)
     for _, element in ipairs(elements) do
-        if element.CombinedLabel.Remove then
+        if element.CombinedLabel and element.CombinedLabel.Remove then
             element.CombinedLabel:Remove()
         end
         if element.Box and element.Box.Remove then
             element.Box:Remove()
         end
     end
+    for _, connection in ipairs(connections) do
+        connection:Disconnect()
+    end
     table.clear(elements)
+    table.clear(processedModels)
+    table.clear(connections)
 end
 
 local MenuGroup = Tabs['UI Settings']:AddLeftGroupbox('Menu')
@@ -1454,9 +1655,16 @@ MenuGroup:AddButton('Unload', function()
     Library:Unload() 
     resetDrawings(activeItemDrawings, processedItemModels, itemConnections)
     resetDrawings(activeVehicleDrawings, processedVehicleModels, vehicleConnections)
-    resetPlayerESPElements(activePlayerDrawings)
+    resetPlayerESPElements(activePlayerDrawings, processedPlayerModels, playerConnections)
     resetDrawings(activeZombieDrawings, processedZombieModels, zombieConnections)
-    resetEventESP()
+    clearEventESP()
+    clearCorpseESP()
+    ItemESPEnabled = false
+    VehicleESPEnabled = false
+    PlayerESPEnabled = false
+    ZombieESPEnabled = false
+    EventESPEnabled = false
+    CorpseESPEnabled = false
 end)
 MenuGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', { Default = 'End', NoUI = true, Text = 'Menu keybind' })
 Library.ToggleKeybind = Options.MenuKeybind
@@ -1469,6 +1677,3 @@ SaveManager:SetFolder('MyScriptHub/specific-game')
 SaveManager:BuildConfigSection(Tabs['UI Settings'])
 ThemeManager:ApplyToTab(Tabs['UI Settings'])
 SaveManager:LoadAutoloadConfig()
-managePlayerESP()
-managePlayerESP()
-handlePlayerDeath()
