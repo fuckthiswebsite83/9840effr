@@ -267,288 +267,6 @@ local function createDrawing(type, text, size, color)
     return drawing
 end
 
-local function applyMaterialAndColor(character)
-    for _, partName in ipairs(bodyParts) do
-        local part = character:FindFirstChild(partName)
-        if part and part:IsA("BasePart") then
-            part.Material = Enum.Material.ForceField
-            part.Color = selfChamsColor
-        end
-    end
-end
-
-local function enableSelfChams()
-    selfChamsEnabled = true
-    local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    applyMaterialAndColor(Character)
-
-    LocalPlayer.CharacterAdded:Connect(function(newCharacter)
-        if selfChamsEnabled then
-            newCharacter:WaitForChild("HumanoidRootPart")
-            applyMaterialAndColor(newCharacter)
-        end
-    end)
-end
-
-local function disableSelfChams()
-    selfChamsEnabled = false
-    local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    for _, partName in ipairs(bodyParts) do
-        local part = Character:FindFirstChild(partName)
-        if part and part:IsA("BasePart") then
-            part.Material = Enum.Material.Plastic
-            part.Color = Color3.fromRGB(255, 255, 255)
-        end
-    end
-
-    LocalPlayer.CharacterAdded:Connect(function(newCharacter)
-        if not selfChamsEnabled then
-            newCharacter:WaitForChild("HumanoidRootPart")
-            for _, partName in ipairs(bodyParts) do
-                local part = newCharacter:FindFirstChild(partName)
-                if part and part:IsA("BasePart") then
-                    part.Material = Enum.Material.Plastic
-                    part.Color = Color3.fromRGB(255, 255, 255)
-                end
-            end
-        end
-    end)
-end
-
-task.spawn(function()
-    local scriptContext = game:GetService("ScriptContext")
-    local function disableErrorConnections()
-        for _, v in pairs(getconnections(scriptContext.Error)) do
-            v:Disable()
-        end
-    end
-    disableErrorConnections()
-    while task.wait(0.1) do
-        disableErrorConnections()
-    end
-end)
-
-local Framework = require(game:GetService("ReplicatedFirst"):WaitForChild("Framework"))
-Framework:WaitForLoaded()
-repeat task.wait() until Framework.Classes.Players.get()
-local PlayerClass = Framework.Classes.Players.get()
-local Network = Framework.Libraries.Network
-local Bullets = Framework.Libraries.Bullets
-
-local plrs = game:GetService("Players")
-local plr = plrs.LocalPlayer
-local mouse = plr:GetMouse()
-local camera = game:GetService("Workspace").CurrentCamera
-local runService = game:GetService("RunService")
-
-local function get_target()
-    local current_target = nil
-    local maximum_distance = 9000
-
-    for i, v in pairs(plrs:GetPlayers()) do
-        if v ~= plr then
-            if v.Character and v.Character:FindFirstChild("Head") then
-                local position, on_screen = game:GetService("Workspace").CurrentCamera:WorldToScreenPoint(v.Character:FindFirstChild("Head").Position)
-                if on_screen then
-                    local distance = (Vector2.new(position.X, position.Y) - Vector2.new(mouse.X, mouse.Y)).Magnitude
-                    if distance < maximum_distance then
-                        current_target = v.Character:FindFirstChild("Head")
-                        maximum_distance = distance
-                    end
-                end
-            end
-        end
-    end
-    return current_target
-end
-
-local CircleInline = Drawing.new("Circle")
-CircleInline.Transparency = 1
-CircleInline.Thickness = 1
-CircleInline.ZIndex = 2
-CircleInline.Position = game:GetService("Workspace").CurrentCamera.ViewportSize / 2
-CircleInline.Radius = 200
-CircleInline.Color = Color3.new(1, 1, 1)
-CircleInline.Visible = true
-
-local function updateFovCircle()
-    local viewportSize = camera.ViewportSize
-    CircleInline.Position = Vector2.new(viewportSize.X * 0.5, viewportSize.Y * 0.5)
-end
-
-local SanityBans = {
-    "Chat Message Send", "Ping Return", "Bullet Impact Interaction", "Crouch Audio Mute", "Zombie Pushback Force Request",
-    "Camera CFrame Report",
-    "Movestate Sync Request", "Update Character Position", "Map Icon History Sync", "Playerlist Staff Icon Get",
-    "Request Physics State Sync",
-    "Inventory Sync Request", "Wardrobe Resync Request", "Door Interact ", "Sorry Mate, Wrong Path :/"
-}
-local NetworkSyncHeartbeat
-local Globals = Framework.Configs.Globals
-local ProjectileGravity = Globals.ProjectileGravity
-local ProjectileSpeed = 1e6
-
-local function HookCharacter(Character)
-    for Index, Item in pairs(PlayerClass.Character.Maid.Items) do
-        if type(Item) == "table" and rawget(Item, "Action") then
-            if table.find(debug.getconstants(Item.Action), "Network sync") then
-                NetworkSyncHeartbeat = Item.Action
-            end
-        end
-    end
-    local OldEquip = Character.Equip
-    Character.Equip = function(Self, Item, ...)
-        if Item.FireConfig and Item.FireConfig.MuzzleVelocity then
-            ProjectileSpeed = Item.FireConfig.MuzzleVelocity * Globals.MuzzleVelocityMod
-        end
-
-        return OldEquip(Self, Item, ...)
-    end
-end
-
-if PlayerClass.Character then
-    HookCharacter(PlayerClass.Character)
-end
-
-PlayerClass.CharacterAdded:Connect(function(Character)
-    HookCharacter(Character)
-end)
-
-local GetSpreadAngle = getupvalue(Bullets.Fire, 1)
-setupvalue(Bullets.Fire, 1, function(Character, CCamera, Weapon, ...)
-    local OldMoveState = Character.MoveState
-    local OldZooming = Character.Zooming
-    local OldFirstPerson = CCamera.FirstPerson
-    Character.MoveState = "Walking"
-    Character.Zooming = true
-    CCamera.FirstPerson = true
-    local ReturnArgs = {GetSpreadAngle(Character, CCamera, Weapon, ...)}
-    Character.MoveState = OldMoveState
-    Character.Zooming = OldZooming
-    CCamera.FirstPerson = OldFirstPerson
-    return unpack(ReturnArgs)
-end)
-
-local function GetStates()
-    if not NetworkSyncHeartbeat then return {} end
-    local Seed = debug.getupvalue(NetworkSyncHeartbeat, 6)
-    local RandomData = {}
-    local SeededRandom = Random.new(Seed)
-    local Data = {
-        "ServerTime",
-        "RootCFrame",
-        "RootVelocity",
-        "FirstPerson",
-        "InstanceCFrame",
-        "LookDirection",
-        "MoveState",
-        "AtEaseInput",
-        "ShoulderSwapped",
-        "Zooming",
-        "BinocsActive",
-        "Staggered",
-        "Shoving"
-    }
-    local DataLength = #Data
-    while #Data > 0 do
-        local ToRemove = SeededRandom:NextInteger(1, DataLength)
-        ToRemove = ToRemove % #Data == 0 and #Data or ToRemove % #Data
-        local Removed = table.remove(Data, ToRemove)
-        table.insert(RandomData, Removed)
-    end
-    return RandomData
-end
-
-local function SolveTrajectory(Origin, Velocity, Time, Gravity)
-    Gravity = Vector3.new(0, math.abs(Gravity), 0)
-    return Origin + (Velocity * Time) + (Gravity * Time * Time)
-end
-
-local function createTracer(startPos, endPos)
-    local attachment0 = Instance.new("Attachment")
-    attachment0.Position = startPos
-    attachment0.Parent = workspace.Terrain
-
-    local attachment1 = Instance.new("Attachment")
-    attachment1.Position = endPos
-    attachment1.Parent = workspace.Terrain
-
-    local beam = Instance.new("Beam")
-    beam.Attachment0 = attachment0
-    beam.Attachment1 = attachment1
-    beam.FaceCamera = true
-    beam.Width0 = 1
-    beam.Width1 = 0.6
-    beam.Color = ColorSequence.new(Color3.new(1, 0, 0))
-    beam.Texture = "rbxassetid://446111271"
-    beam.TextureMode = Enum.TextureMode.Wrap
-    beam.TextureLength = 3
-    beam.TextureSpeed = 3
-    beam.LightEmission = 1
-    beam.LightInfluence = 1
-    beam.Parent = workspace.Terrain
-
-    game:GetService("Debris"):AddItem(attachment0, 1.5)
-    game:GetService("Debris"):AddItem(attachment1, 1.5)
-    game:GetService("Debris"):AddItem(beam, 1.5)
-end
-
-local NewSend = function(OldSend, Self, Name, ...)
-    if table.find(SanityBans, Name) then
-        return
-    end
-    return OldSend(Self, Name, ...)
-end
-
-local NewFetch = function(OldFetch, Self, Name, ...)
-    if table.find(SanityBans, Name) then
-        return
-    end
-    if Name == "Character State Report" then
-        local RandomData = GetStates()
-        local Args = {...}
-        for Index = 1, #Args do
-            if RandomData[Index] == "MoveState" then
-                Args[Index] = "Climbing"
-            end
-        end
-        return OldFetch(Self, Name, unpack(Args))
-    end
-    return OldFetch(Self, Name, ...)
-end
-
-local NewFire = function(OldFire, Self, ...)
-    local Args = { ... }
-    local target = get_target() 
-    if target then
-        local Position = target.Position
-        local Velocity = target.Parent.HumanoidRootPart.AssemblyLinearVelocity
-        local Direction = Position - Args[4]
-        local TravelTime = Direction.Magnitude / ProjectileSpeed
-        Position = SolveTrajectory(Position, Velocity, TravelTime, ProjectileGravity)
-        local ProjectileDirection = (Position - Args[4]).Unit
-        Args[5] = ProjectileDirection
-        createTracer(Args[4], Position)
-    end
-    return OldFire(Self, unpack(Args))
-end
-
-local OldFire; OldFire = hookfunction(Bullets.Fire, function(Self, ...)
-    return NewFire(OldFire, Self, ...)
-end)
-
-local OldSend; OldSend = hookfunction(Network.Send, function(Self, Name, ...)
-    return NewSend(OldSend, Self, Name, ...)
-end)
-
-local OldFetch; OldFetch = hookfunction(Network.Fetch, function(Self, Name, ...)
-    return NewFetch(OldFetch, Self, Name, ...)
-end)
-
-runService.RenderStepped:Connect(function()
-    updateFovCircle()
-end)
-
 local function updatePlayerESP(element, position, distance)
     if not element then return end
 
@@ -696,11 +414,6 @@ RunService.RenderStepped:Connect(function()
                     element.CombinedLabel.Visible = false
                     if element.Box then
                         element.Box.Visible = false
-                    end
-                else
-                    element.CombinedLabel.Visible = PlayerESPEnabled and PlayerESPTextEnabled
-                    if element.Box then
-                        element.Box.Visible = PlayerESPBoxEnabled
                     end
                 end
             end
@@ -1409,6 +1122,54 @@ local function refreshGodview()
             thing:EnableGodview()
         end
     end
+end
+
+local function applyMaterialAndColor(character)
+    for _, partName in ipairs(bodyParts) do
+        local part = character:FindFirstChild(partName)
+        if part and part:IsA("BasePart") then
+            part.Material = Enum.Material.ForceField
+            part.Color = selfChamsColor
+        end
+    end
+end
+
+local function enableSelfChams()
+    selfChamsEnabled = true
+    local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    applyMaterialAndColor(Character)
+
+    LocalPlayer.CharacterAdded:Connect(function(newCharacter)
+        if selfChamsEnabled then
+            newCharacter:WaitForChild("HumanoidRootPart")
+            applyMaterialAndColor(newCharacter)
+        end
+    end)
+end
+
+local function disableSelfChams()
+    selfChamsEnabled = false
+    local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    for _, partName in ipairs(bodyParts) do
+        local part = Character:FindFirstChild(partName)
+        if part and part:IsA("BasePart") then
+            part.Material = Enum.Material.Plastic
+            part.Color = Color3.fromRGB(255, 255, 255)
+        end
+    end
+
+    LocalPlayer.CharacterAdded:Connect(function(newCharacter)
+        if not selfChamsEnabled then
+            newCharacter:WaitForChild("HumanoidRootPart")
+            for _, partName in ipairs(bodyParts) do
+                local part = newCharacter:FindFirstChild(partName)
+                if part and part:IsA("BasePart") then
+                    part.Material = Enum.Material.Plastic
+                    part.Color = Color3.fromRGB(255, 255, 255)
+                end
+            end
+        end
+    end)
 end
 
 ItemESPGroupBox:AddToggle('ItemESP', {
