@@ -1,21 +1,26 @@
+-- // Services \\ --
 local UserInputService = game:GetService("UserInputService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
+-- // UI Setup \\ --
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/Library.lua"))()
 local ThemeManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/addons/ThemeManager.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/addons/SaveManager.lua"))()
 
-local Window = Library:CreateWindow({ Title = ' $ $ $ $ $ $$ $$$ $$ $  [warp.space] $ $$ $$ [v.1] $ $ $ $ $$$', Center = true, AutoShow = true })
+local Window = Library:CreateWindow({ 
+    Title = ' $ $ $ $ $ $$ $$$ $$ $  [warp.space] $ $$ $$ [v.1] $ $ $ $ $$$', 
+    Center = true, 
+    AutoShow = true 
+})
+
 local Tabs = { 
     Main = Window:AddTab('Main'),
     Visuals = Window:AddTab('Visuals'), 
     ['UI Settings'] = Window:AddTab('UI Settings') 
 }
-
--- // Nigga stuff \\ --
 
 local GunModsGroupBox = Tabs.Main:AddLeftGroupbox('Gun Mods')
 local MovementGroupBox = Tabs.Main:AddRightGroupbox('Movement')
@@ -33,20 +38,17 @@ local MapESPGroupBox = Tabs.Visuals:AddLeftGroupbox('Map ESP')
 local ReloadBarGroupBox = Tabs.Visuals:AddRightGroupbox('Reload Bar')
 local AimedFOVGroupBox = Tabs.Visuals:AddLeftGroupbox('Aimed FOV')
 local SelfChamsGroupBox = Tabs.Visuals:AddRightGroupbox('Self Chams')
-local ItemESPEnabled = false
-local VehicleESPEnabled = false
-local ItemESPColor = Color3.new(1, 1, 1)
-local VehicleESPColor = Color3.new(1, 1, 1)
-local ItemESPSize = 20
-local VehicleESPSize = 20
-local VehicleRenderDistance = 1000
-local JumpHackEnabled = false
-local JumpHeight = 50
-local TpWalkingEnabled = false
-local TpWalkSpeed = 10
+
+-- // nigga shit \\ --
+local ItemESPEnabled, VehicleESPEnabled, PlayerESPEnabled, ZombieESPEnabled, EventESPEnabled, CorpseESPEnabled = false, false, false, false, false, false
+local ItemESPColor, VehicleESPColor, PlayerESPColor, ZombieESPColor, EventESPColor, CorpseESPColor = Color3.new(1, 1, 1), Color3.new(1, 1, 1), Color3.new(1, 1, 1), Color3.new(1, 1, 1), Color3.new(1, 1, 1), Color3.new(1, 0, 0)
+local ItemESPSize, VehicleESPSize, PlayerESPSize, ZombieESPSize, EventESPSize, CorpseESPTextSize = 20, 20, 20, 20, 20, 20
+local VehicleRenderDistance, PlayerRenderDistance, ZombieRenderDistance, EventRenderDistance, CorpseRenderDistance = 1000, 1000, 1000, 1000, 1000
+local JumpHackEnabled, TpWalkingEnabled, InfiniteJumpEnabled, SpiderClimbEnabled = false, false, false, false
+local JumpHeight, TpWalkSpeed, SpiderClimbSpeed = 50, 10, 1
 local jumpHackConnection
-local HighlightESPEnabled = false
-local ChamsWallcheckEnabled = false
+
+local HighlightESPEnabled, ChamsWallcheckEnabled = false, false
 local highlightConnections = {}
 local LocalPlayer = Players.LocalPlayer
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -55,56 +57,25 @@ local Humanoid = Character:WaitForChild("Humanoid")
 local player = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 local plr = player
-local PlayerESPEnabled = false
-local PlayerESPBoxEnabled = false
-local PlayerESPTextEnabled = false
-local PlayerESPColor = Color3.new(1, 1, 1)
-local PlayerESPSize = 20
-local PlayerRenderDistance = 1000
-local activePlayerDrawings = {}
-local processedPlayerModels = {}
-local playerConnections = {}
+local PlayerESPBoxEnabled, PlayerESPTextEnabled = false, false
+local activePlayerDrawings, processedPlayerModels, playerConnections = {}, {}, {}
 local TextESPPosition = { X = 0, Y = 0, Z = 0 }
-local processedItemModels = {}
-local processedVehicleModels = {}
-local activeItemDrawings = {}
-local activeVehicleDrawings = {}
-local itemConnections = {}
-local vehicleConnections = {}
-local ZombieESPEnabled = false
-local ZombieESPColor = Color3.new(1, 1, 1)
-local ZombieESPSize = 20
-local ZombieRenderDistance = 1000
-local activeZombieDrawings = {}
-local processedZombieModels = {}
-local zombieConnections = {}
-local EventESPEnabled = false
-local EventESPColor = Color3.new(1, 1, 1)
-local EventESPSize = 20
-local EventRenderDistance = 1000
-local activeEventDrawings = {}
-local processedEventModels = {}
-local eventConnections = {}
+local processedItemModels, processedVehicleModels = {}, {}
+local activeItemDrawings, activeVehicleDrawings = {}, {}
+local itemConnections, vehicleConnections = {}, {}
+local activeZombieDrawings, processedZombieModels, zombieConnections = {}, {}, {}
+local activeEventDrawings, processedEventModels, eventConnections = {}, {}, {}
 local HitboxExpanderEnabled = false
 local HitboxSize = 4
-local CorpseESPEnabled = false
-local CorpseESPColor = Color3.new(1, 0, 0)
-local CorpseESPTextSize = 20
-local CorpseRenderDistance = 1000
-local corpseConnections = {}
-local activeCorpseDrawings = {}
-local InfiniteJumpEnabled = false
-local bulletDropEnabled = false
-local bulletDropValue = 0
-local SpiderClimbEnabled = false
-local SpiderClimbSpeed = 1
-local NetworkSyncHeartbeat
-local InteractHeartbeat, FindItemData
-local GodviewEnabled = false
-local instantBulletConnection
-local antiZombieEnabled = false
-local aimedFOVValue = 90
-local selfChamsEnabled = false
+local activeCorpseDrawings, corpseConnections = {}, {}
+local SilentAimEnabled = false
+local FovCircleEnabled = false
+local LootedCheckEnabled = false
+local hitLogs = {}
+
+-- // other nigga shit \\ --
+local bulletDropEnabled, antiZombieEnabled, GodviewEnabled, selfChamsEnabled = false, false, false, false
+local bulletDropValue, aimedFOVValue = 0, 90
 local selfChamsColor = Color3.new(1, 0, 0)
 local bodyParts = {
     "LeftFoot", "LeftHand", "LeftLowerArm", "LeftLowerLeg",
@@ -112,8 +83,16 @@ local bodyParts = {
     "RightFoot", "RightHand", "RightLowerArm", "RightLowerLeg",
     "RightUpperArm", "RightUpperLeg"
 }
+local NetworkSyncHeartbeat, InteractHeartbeat, FindItemData, instantBulletConnection
 
--- // end of Nigga stuff \\ --
+local CircleInline = Drawing.new("Circle")
+CircleInline.Transparency = 1
+CircleInline.Thickness = 1
+CircleInline.ZIndex = 2
+CircleInline.Position = game:GetService("Workspace").CurrentCamera.ViewportSize / 2
+CircleInline.Radius = 200
+CircleInline.Color = Color3.new(1, 1, 1)
+CircleInline.Visible = false
 
 local function createTextDrawing(text, size, color)
     local drawing = Drawing.new("Text")
@@ -287,7 +266,7 @@ local function updatePlayerESP(element, position, distance)
             element.CombinedLabel.Text = combinedText
 
             local textBounds = element.CombinedLabel.TextBounds
-            element.CombinedLabel.Position = Vector2.new(screenPosition.X - textBounds.X / 2, screenPosition.Y + 20)
+            element.CombinedLabel.Position = Vector2.new(screenPosition.X, screenPosition.Y + 20)
 
             element.LastHealth = health
         end
@@ -298,10 +277,9 @@ local function updatePlayerESP(element, position, distance)
         if onScreen and distance <= PlayerRenderDistance then
             local model = element.Model
             local cframe, size = model:GetBoundingBox()
-            local hitboxSize = HitboxExpanderEnabled and HitboxSize or 1
-            size = size * hitboxSize
-            local min = cframe.Position - size / 2
-            local max = cframe.Position + size / 2
+            local fixedSize = Vector3.new(4, 6, 4) -- temp
+            local min = cframe.Position - fixedSize / 2
+            local max = cframe.Position + fixedSize / 2
             local minScreenPos, onScreenMin = camera:WorldToViewportPoint(min)
             local maxScreenPos, onScreenMax = camera:WorldToViewportPoint(max)
 
@@ -318,7 +296,7 @@ local function updatePlayerESP(element, position, distance)
     end
 end
 
-local function createPlayerESPElements(model, espSize, espColor)
+local function createPlayerESPElements(model, espSize, espColor) -- breaks the font
     local primaryPart = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
     if not primaryPart then
         for _, part in ipairs(model:GetChildren()) do
@@ -451,6 +429,12 @@ local function create_esp(model)
             if connection then
                 connection:Disconnect()
             end
+            return
+        end
+
+        if LootedCheckEnabled and model:GetAttribute("Searched") then
+            nameLabel.Visible = false
+            distanceLabel.Visible = false
             return
         end
 
@@ -674,7 +658,7 @@ local function startHighlightESP()
     table.insert(highlightConnections, playerAddedConnection)
 end
 
-local function stopHighlightESP()
+local function stopHighlightESP() -- // fix this later nigga remember
     for _, connection in ipairs(highlightConnections) do
         connection:Disconnect()
     end
@@ -694,32 +678,28 @@ local function managePlayerESP()
     clearPlayerESPElements(activePlayerDrawings)
     if not PlayerESPEnabled then return end
 
+    local function onCharacterAdded(character)
+        if PlayerESPEnabled then
+            local esp = createPlayerESPElements(character, PlayerESPSize, PlayerESPColor)
+            if esp then
+                table.insert(activePlayerDrawings, esp)
+                processedPlayerModels[character] = esp
+            end
+        end
+    end
+
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= Players.LocalPlayer then
-            local character = player.Character
-            if character then
-                local esp = createPlayerESPElements(character, PlayerESPSize, PlayerESPColor)
-                if esp then
-                    table.insert(activePlayerDrawings, esp)
-                    processedPlayerModels[character] = esp
-                end
+            if player.Character then
+                onCharacterAdded(player.Character)
             end
+            player.CharacterAdded:Connect(onCharacterAdded)
         end
     end
 
     local playerAddedConnection
     playerAddedConnection = Players.PlayerAdded:Connect(function(player)
         if player ~= Players.LocalPlayer then
-            local function onCharacterAdded(character)
-                if PlayerESPEnabled then
-                    local esp = createPlayerESPElements(character, PlayerESPSize, PlayerESPColor)
-                    if esp then
-                        table.insert(activePlayerDrawings, esp)
-                        processedPlayerModels[character] = esp
-                    end
-                end
-            end
-
             if player.Character then
                 onCharacterAdded(player.Character)
             end
@@ -899,6 +879,300 @@ local function handleEventESP()
     table.insert(eventConnections, eventConnection)
 end
 
+task.spawn(function()
+    local scriptContext = game:GetService("ScriptContext")
+    local function disableErrorConnections()
+        for _, v in pairs(getconnections(scriptContext.Error)) do
+            v:Disable()
+        end
+    end
+    disableErrorConnections()
+    while task.wait(0.1) do
+        disableErrorConnections()
+    end
+end)
+
+local Framework = require(game:GetService("ReplicatedFirst"):WaitForChild("Framework"))
+Framework:WaitForLoaded()
+repeat task.wait() until Framework.Classes.Players.get()
+local PlayerClass = Framework.Classes.Players.get()
+local Network = Framework.Libraries.Network
+local Bullets = Framework.Libraries.Bullets
+
+local plrs = game:GetService("Players")
+local plr = plrs.LocalPlayer
+local mouse = plr:GetMouse()
+local camera = game:GetService("Workspace").CurrentCamera
+local runService = game:GetService("RunService")
+
+local function get_target()
+    if not SilentAimEnabled then
+        return nil
+    end
+
+    local current_target = nil
+    local maximum_distance = 200
+
+    for i, v in pairs(plrs:GetPlayers()) do
+        if v ~= plr then
+            if v.Character and v.Character:FindFirstChild("Head") then
+                local position, on_screen = game:GetService("Workspace").CurrentCamera:WorldToScreenPoint(v.Character:FindFirstChild("Head").Position)
+                if on_screen then
+                    local distance = (Vector2.new(position.X, position.Y) - Vector2.new(mouse.X, mouse.Y)).Magnitude
+                    if distance < maximum_distance then
+                        if FovCircleEnabled then
+                            local fov_distance = (Vector2.new(position.X, position.Y) - CircleInline.Position).Magnitude
+                            if fov_distance > CircleInline.Radius then
+                                break
+                            end
+                        end
+                        current_target = v.Character:FindFirstChild("Head")
+                        maximum_distance = distance
+                    end
+                end
+            end
+        end
+    end
+    return current_target
+end
+
+local function updateFovCircle()
+    local viewportSize = camera.ViewportSize
+    CircleInline.Position = Vector2.new(viewportSize.X * 0.5, viewportSize.Y * 0.5)
+end
+
+local SanityBans = {
+    "Chat Message Send", "Ping Return", "Bullet Impact Interaction", "Crouch Audio Mute", "Zombie Pushback Force Request",
+    "Camera CFrame Report",
+    "Movestate Sync Request", "Update Character Position", "Map Icon History Sync", "Playerlist Staff Icon Get",
+    "Request Physics State Sync",
+    "Inventory Sync Request", "Wardrobe Resync Request", "Door Interact ", "Sorry Mate, Wrong Path :/"
+}
+local NetworkSyncHeartbeat
+local Globals = Framework.Configs.Globals
+local ProjectileGravity = Globals.ProjectileGravity
+local ProjectileSpeed = 1000
+
+local activeHitLogs = {}
+local hitLogYOffset = 25
+local lastDisplayedHealth = {}
+
+local activeHitLogs = {}
+local hitLogYOffset = 25
+local lastDisplayedHealth = {}
+
+local function showHitLog(targetPlayer)
+    task.delay(0.75, function()
+        local statsFolder = targetPlayer:FindFirstChild("Stats")
+        local currentHP = statsFolder and statsFolder:FindFirstChild("Health") and statsFolder.Health.Value or "Unknown"
+        if type(currentHP) == "number" then
+            currentHP = math.floor(currentHP + 0.5)
+        end
+        local playerName = targetPlayer.Name
+        local currentTime = tick()
+        if lastDisplayedHealth[playerName] and lastDisplayedHealth[playerName].health == currentHP and (currentTime - lastDisplayedHealth[playerName].timestamp) < 10 then
+            return
+        end
+
+        lastDisplayedHealth[playerName] = { health = currentHP, timestamp = currentTime }
+        local hitLogText = Drawing.new("Text")
+        hitLogText.Size = 20
+        hitLogText.Color = Color3.new(1, 0, 0)
+        hitLogText.Center = true
+        hitLogText.Outline = true
+        hitLogText.Position = Vector2.new(camera.ViewportSize.X * 0.5, camera.ViewportSize.Y * 0.9)
+        hitLogText.Visible = true
+        hitLogText.Text = "[periphean.wtf] hit [" .. playerName .. "] to [" .. currentHP .. "]"
+        for i, log in ipairs(activeHitLogs) do
+            log.Position = log.Position - Vector2.new(0, hitLogYOffset)
+        end
+        table.insert(activeHitLogs, hitLogText)
+
+        task.delay(3.5, function()
+            hitLogText.Visible = false
+            for i, log in ipairs(activeHitLogs) do
+                if log == hitLogText then
+                    table.remove(activeHitLogs, i)
+                    break
+                end
+            end
+            for i, log in ipairs(activeHitLogs) do
+                log.Position = Vector2.new(camera.ViewportSize.X * 0.5, camera.ViewportSize.Y * 0.9 - (i - 1) * hitLogYOffset)
+            end
+        end)
+    end)
+end
+
+local function HookCharacter(Character)
+    for Index, Item in pairs(PlayerClass.Character.Maid.Items) do
+        if type(Item) == "table" and rawget(Item, "Action") then
+            if table.find(debug.getconstants(Item.Action), "Network sync") then
+                NetworkSyncHeartbeat = Item.Action
+            end
+        end
+    end
+    local OldEquip = Character.Equip
+    Character.Equip = function(Self, Item, ...)
+        if Item.FireConfig and Item.FireConfig.MuzzleVelocity then
+            ProjectileSpeed = Item.FireConfig.MuzzleVelocity * Globals.MuzzleVelocityMod
+        end
+
+        return OldEquip(Self, Item, ...)
+    end
+end
+
+if PlayerClass.Character then
+    HookCharacter(PlayerClass.Character)
+end
+
+PlayerClass.CharacterAdded:Connect(function(Character)
+    HookCharacter(Character)
+end)
+
+local GetSpreadAngle = getupvalue(Bullets.Fire, 1)
+setupvalue(Bullets.Fire, 1, function(Character, CCamera, Weapon, ...)
+    local OldMoveState = Character.MoveState
+    local OldZooming = Character.Zooming
+    local OldFirstPerson = CCamera.FirstPerson
+    Character.MoveState = "Walking"
+    Character.Zooming = true
+    CCamera.FirstPerson = true
+    local ReturnArgs = {GetSpreadAngle(Character, CCamera, Weapon, ...)}
+    Character.MoveState = OldMoveState
+    Character.Zooming = OldZooming
+    CCamera.FirstPerson = OldFirstPerson
+    return unpack(ReturnArgs)
+end)
+
+local function GetStates()
+    if not NetworkSyncHeartbeat then return {} end
+    local Seed = debug.getupvalue(NetworkSyncHeartbeat, 6)
+    local RandomData = {}
+    local SeededRandom = Random.new(Seed)
+    local Data = {
+        "ServerTime",
+        "RootCFrame",
+        "RootVelocity",
+        "FirstPerson",
+        "InstanceCFrame",
+        "LookDirection",
+        "MoveState",
+        "AtEaseInput",
+        "ShoulderSwapped",
+        "Zooming",
+        "BinocsActive",
+        "Staggered",
+        "Shoving"
+    }
+    local DataLength = #Data
+    while #Data > 0 do
+        local ToRemove = SeededRandom:NextInteger(1, DataLength)
+        ToRemove = ToRemove % #Data == 0 and #Data or ToRemove % #Data
+        local Removed = table.remove(Data, ToRemove)
+        table.insert(RandomData, Removed)
+    end
+    return RandomData
+end
+
+local function SolveTrajectory(Origin, Velocity, Time, Gravity)
+    local GravityVector = Vector3.new(0, -math.abs(Gravity), 0)
+    return Origin + (Velocity * Time) + (0.5 * GravityVector * Time * Time)
+end
+
+local function createTracer(startPos, endPos)
+    local attachment0 = Instance.new("Attachment")
+    attachment0.Position = startPos
+    attachment0.Parent = workspace.Terrain
+
+    local attachment1 = Instance.new("Attachment")
+    attachment1.Position = endPos
+    attachment1.Parent = workspace.Terrain
+
+    local beam = Instance.new("Beam")
+    beam.Attachment0 = attachment0
+    beam.Attachment1 = attachment1
+    beam.FaceCamera = true
+    beam.Width0 = 1
+    beam.Width1 = 0.6
+    beam.Color = ColorSequence.new(Color3.new(1, 0, 0))
+    beam.Texture = "rbxassetid://446111271"
+    beam.TextureMode = Enum.TextureMode.Wrap
+    beam.TextureLength = 3
+    beam.TextureSpeed = 3
+    beam.LightEmission = 1
+    beam.LightInfluence = 1
+    beam.Parent = workspace.Terrain
+
+    game:GetService("Debris"):AddItem(attachment0, 1.5)
+    game:GetService("Debris"):AddItem(attachment1, 1.5)
+    game:GetService("Debris"):AddItem(beam, 1.5)
+end
+
+local NewSend = function(OldSend, Self, Name, ...)
+    if table.find(SanityBans, Name) then
+        return
+    end
+    return OldSend(Self, Name, ...)
+end
+
+local NewFetch = function(OldFetch, Self, Name, ...)
+    if table.find(SanityBans, Name) then
+        return
+    end
+    if Name == "Character State Report" then
+        local RandomData = GetStates()
+        local Args = {...}
+        for Index = 1, #Args do
+            if RandomData[Index] == "MoveState" then
+                Args[Index] = "Climbing"
+            end
+        end
+        return OldFetch(Self, Name, unpack(Args))
+    end
+    return OldFetch(Self, Name, ...)
+end
+
+local NewFire = function(OldFire, Self, ...)
+    local Args = { ... }
+    local target = get_target() 
+    if target then
+        local Position = target.Position
+        local Direction = Position - Args[4]
+        Position = SolveTrajectory(Position , target.Parent.HumanoidRootPart.AssemblyLinearVelocity, Direction.Magnitude / ProjectileSpeed, ProjectileGravity)
+        local ProjectileDirection = (Position - Args[4]).Unit
+        Args[5] = ProjectileDirection
+        createTracer(Args[4], Position)
+        
+        local ray = Ray.new(Args[4], ProjectileDirection * Direction.Magnitude)
+        local hit, hitPosition = workspace:FindPartOnRay(ray, plr.Character)
+        if hit and hit.Parent then
+            local targetPlayer = game:GetService("Players"):GetPlayerFromCharacter(hit.Parent)
+            if targetPlayer then
+                showHitLog(targetPlayer)
+            end
+        end
+    end
+    return OldFire(Self, unpack(Args))
+end
+
+local OldFire; OldFire = hookfunction(Bullets.Fire, function(Self, ...)
+    return NewFire(OldFire, Self, ...)
+end)
+
+local OldSend; OldSend = hookfunction(Network.Send, function(Self, Name, ...)
+    return NewSend(OldSend, Self, Name, ...)
+end)
+
+local OldFetch; OldFetch = hookfunction(Network.Fetch, function(Self, Name, ...)
+    return NewFetch(OldFetch, Self, Name, ...)
+end)
+
+runService.RenderStepped:Connect(function()
+    updateFovCircle()
+end)
+
+print('loaded')
+
 local function changeHeadSize(head, size, transparency)
     pcall(function()
         head.Size = Vector3.new(size, size, size)
@@ -915,27 +1189,11 @@ local function resetHeadSize(head)
     end)
 end
 
-local function changeMeshSize(mesh, size)
-    pcall(function()
-        mesh.Scale = Vector3.new(size, size, size)
-    end)
-end
-
-local function resetMeshSize(mesh)
-    pcall(function()
-        mesh.Scale = Vector3.new(1, 1, 1)
-    end)
-end
-
 local function expandHitbox()
     if not HitboxExpanderEnabled then
         for _, player in pairs(game:GetService('Players'):GetPlayers()) do
             if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
                 resetHeadSize(player.Character.Head)
-                local mesh = player.Character.Head:FindFirstChildOfClass("SpecialMesh")
-                if mesh then
-                    resetMeshSize(mesh)
-                end
             end
         end
         return
@@ -944,10 +1202,6 @@ local function expandHitbox()
     for _, player in pairs(game:GetService('Players'):GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
             changeHeadSize(player.Character.Head, HitboxSize, 0.5)
-            local mesh = player.Character.Head:FindFirstChildOfClass("SpecialMesh")
-            if mesh then
-                changeMeshSize(mesh, HitboxSize)
-            end
         end
     end
 end
@@ -979,11 +1233,7 @@ RunService.RenderStepped:Connect(expandHitbox)
 
 Workspace.ChildAdded:Connect(function(child)
     if child:IsA("Model") and child:FindFirstChild("Head") and Players:GetPlayerFromCharacter(child) ~= LocalPlayer then
-        local head = child:FindFirstChild("Head")
-        local mesh = head:FindFirstChildOfClass("SpecialMesh")
-        if mesh then
-            changeMeshSize(mesh, HitboxSize)
-        end
+        changeHeadSize(child:FindFirstChild("Head"), HitboxSize, 0.5)
     end
 end)
 
@@ -996,10 +1246,7 @@ setreadonly(mt, false)
 mt.__index = newcclosure(function(self, key)
     if not checkcaller() then
         if key == "Scale" and self:IsA("SpecialMesh") and self.Parent and self.Parent.Name == "Head" then
-            local character = self.Parent.Parent
-            if character and character:IsA("Model") and Players:GetPlayerFromCharacter(character) ~= LocalPlayer then
-                return Vector3.new(1, 1, 1)
-            end
+            return Vector3.new(1, 1, 1)
         elseif key == "Size" and self.Name == "Head" then
             local character = self.Parent
             if character and character:IsA("Model") and Players:GetPlayerFromCharacter(character) ~= LocalPlayer then
@@ -1013,10 +1260,7 @@ end)
 mt.__newindex = newcclosure(function(self, key, value)
     if not checkcaller() then
         if key == "Scale" and self:IsA("SpecialMesh") and self.Parent and self.Parent.Name == "Head" then
-            local character = self.Parent.Parent
-            if character and character:IsA("Model") and Players:GetPlayerFromCharacter(character) ~= LocalPlayer then
-                return
-            end
+            return
         elseif key == "Size" and self.Name == "Head" then
             local character = self.Parent
             if character and character:IsA("Model") and Players:GetPlayerFromCharacter(character) ~= LocalPlayer then
@@ -1048,7 +1292,7 @@ oldIndex = hookmetamethod(game, "__index", function(self, key)
     if InfiniteJumpEnabled and key == "State" and typeof(self) == "Instance" and self:IsA("Humanoid") then
         local state = oldIndex(self, key)
         if state == Enum.HumanoidStateType.Jumping or state == Enum.HumanoidStateType.Freefall then
-            return Enum.HumanoidStateType.Walking
+            return Enum.HumanoidStateType.Climbing
         end
         return state
     end
@@ -1172,8 +1416,58 @@ local function disableSelfChams()
     end)
 end
 
+local function noFallDMG()
+    local affectpos = Vector3.new(0, 0, 0)
+    local affected = table.create(0)
+    local human
+    local stime = 0
+    local atime = 0
+    function check()
+        local tracks = human.Animator:GetPlayingAnimationTracks()
+        local isswim = tostring(tracks[9]) == "Swimming"
+        if isswim then
+            stime = stime + 1
+        else
+            stime = 0
+        end
+        return stime > 100
+    end
+    
+    game["Run Service"].RenderStepped:Connect(function()
+        pcall(function()
+            local char = game.Players.LocalPlayer.Character
+            local hrp = char.HumanoidRootPart
+            human = char.Humanoid
+            affectpos = hrp.Position - Vector3.new(0, 4, 0)
+            local stuff = workspace:GetPartBoundsInRadius(affectpos, 50)
+            for i, v in pairs(stuff) do
+                if v.Name ~= "Sea Floor" then
+                    affected[v] = v.Name
+                elseif check() and affected[v] then
+                    v.Name = affected[v]
+                end
+                if v:IsDescendantOf(workspace.Map) and human.FloorMaterial == Enum.Material.Air and atime > 0.7 then
+                    v.Name = "Sea Floor"
+                end
+            end
+        end)
+    end)
+    task.spawn(function()
+        while task.wait(0.1) do
+            pcall(function()
+                if human.FloorMaterial == Enum.Material.Air then
+                    atime = atime + 0.1
+                else
+                    atime = 0
+                end
+            end)
+        end
+    end)
+    print("loaded")
+end
+
 ItemESPGroupBox:AddToggle('ItemESP', {
-    Text = 'Item ESP',
+    Text = 'Enabled',
     Default = false,
     Tooltip = 'Toggle item ESP on or off',
     Callback = function(Value)
@@ -1188,7 +1482,7 @@ ItemESPGroupBox:AddToggle('ItemESP', {
 
 ItemESPGroupBox:AddLabel('ESP Color'):AddColorPicker('ItemESPColor', { 
     Default = Color3.new(1, 1, 1), 
-    Title = 'Select ESP color', 
+    Title = 'Color', 
     Callback = function(Value) 
         ItemESPColor = Value 
         for _, drawing in ipairs(activeItemDrawings) do
@@ -1198,7 +1492,7 @@ ItemESPGroupBox:AddLabel('ESP Color'):AddColorPicker('ItemESPColor', {
 })
 
 ItemESPGroupBox:AddSlider('ItemESPSize', { 
-    Text = 'ESP Size', 
+    Text = 'Size', 
     Default = 20, 
     Min = 10, 
     Max = 50, 
@@ -1218,7 +1512,7 @@ Options.ItemESPSize:SetValue(30)
 Options.ItemESPColor:SetValueRGB(Color3.fromRGB(255, 0, 0))
 
 VehicleESPGroupBox:AddToggle('VehicleESP', {
-    Text = 'Vehicle ESP',
+    Text = 'Enabled',
     Default = false,
     Tooltip = 'Toggle vehicle ESP on or off',
     Callback = function(Value)
@@ -1233,7 +1527,7 @@ VehicleESPGroupBox:AddToggle('VehicleESP', {
 
 VehicleESPGroupBox:AddLabel('ESP Color'):AddColorPicker('VehicleESPColor', { 
     Default = Color3.new(1, 1, 1), 
-    Title = 'Select ESP color', 
+    Title = 'Color', 
     Callback = function(Value) 
         VehicleESPColor = Value 
         for _, drawing in ipairs(activeVehicleDrawings) do
@@ -1243,7 +1537,7 @@ VehicleESPGroupBox:AddLabel('ESP Color'):AddColorPicker('VehicleESPColor', {
 })
 
 VehicleESPGroupBox:AddSlider('VehicleESPSize', { 
-    Text = 'ESP Size', 
+    Text = 'Size', 
     Default = 20, 
     Min = 10, 
     Max = 50, 
@@ -1280,7 +1574,7 @@ Options.VehicleESPColor:SetValueRGB(Color3.fromRGB(255, 0, 0))
 Options.VehicleRenderDistance:SetValue(1000)
 
 PlayerESPGroupBox:AddToggle('PlayerESP', {
-    Text = 'Player ESP',
+    Text = 'Master Toggle',
     Default = false,
     Tooltip = 'Toggle player ESP on or off',
     Callback = function(Value)
@@ -1424,7 +1718,7 @@ WorldMiscGroupBox:AddButton({
 })
 
 ZombieESPGroupBox:AddToggle('ZombieESP', {
-    Text = 'Zombie ESP',
+    Text = 'Enabled',
     Default = false,
     Tooltip = 'Toggle zombie ESP on or off',
     Callback = function(Value)
@@ -1435,7 +1729,7 @@ ZombieESPGroupBox:AddToggle('ZombieESP', {
 
 ZombieESPGroupBox:AddLabel('ESP Color'):AddColorPicker('ZombieESPColor', { 
     Default = Color3.new(1, 1, 1), 
-    Title = 'Select ESP color', 
+    Title = 'Color', 
     Callback = function(Value) 
         ZombieESPColor = Value 
         for _, drawing in ipairs(activeZombieDrawings) do
@@ -1445,7 +1739,7 @@ ZombieESPGroupBox:AddLabel('ESP Color'):AddColorPicker('ZombieESPColor', {
 })
 
 ZombieESPGroupBox:AddSlider('ZombieESPSize', { 
-    Text = 'ESP Size', 
+    Text = 'Size', 
     Default = 20, 
     Min = 10, 
     Max = 50, 
@@ -1475,7 +1769,7 @@ ZombieESPGroupBox:AddSlider('ZombieRenderDistance', {
 })
 
 EventESPGroupBox:AddToggle('EventESP', {
-    Text = 'Event ESP',
+    Text = 'Enabled',
     Default = false,
     Tooltip = 'Toggle event ESP on or off',
     Callback = function(Value)
@@ -1486,7 +1780,7 @@ EventESPGroupBox:AddToggle('EventESP', {
 
 EventESPGroupBox:AddLabel('ESP Color'):AddColorPicker('EventESPColor', { 
     Default = Color3.new(1, 1, 1), 
-    Title = 'Select ESP color', 
+    Title = 'Color', 
     Callback = function(Value) 
         EventESPColor = Value 
         for _, drawing in ipairs(activeEventDrawings) do
@@ -1496,7 +1790,7 @@ EventESPGroupBox:AddLabel('ESP Color'):AddColorPicker('EventESPColor', {
 })
 
 EventESPGroupBox:AddSlider('EventESPSize', { 
-    Text = 'ESP Size', 
+    Text = 'Size', 
     Default = 20, 
     Min = 10, 
     Max = 50, 
@@ -1526,7 +1820,7 @@ EventESPGroupBox:AddSlider('EventRenderDistance', {
 })
 
 CorpseESPGroupBox:AddToggle('CorpseESP', {
-    Text = 'Corpse ESP',
+    Text = 'Enabled',
     Default = false,
     Tooltip = 'Toggle corpse ESP on or off',
     Callback = function(Value)
@@ -1539,9 +1833,22 @@ CorpseESPGroupBox:AddToggle('CorpseESP', {
     end
 })
 
+CorpseESPGroupBox:AddToggle('LootedCheck', {
+    Text = 'Looted Check',
+    Default = false,
+    Tooltip = 'Check if the corpse has been looted',
+    Callback = function(Value)
+        LootedCheckEnabled = Value
+        if CorpseESPEnabled then
+            clearCorpseESP()
+            setup_esp()
+        end
+    end
+})
+
 CorpseESPGroupBox:AddLabel('ESP Color'):AddColorPicker('CorpseESPColor', { 
     Default = Color3.new(1, 0, 0), 
-    Title = 'Select ESP color', 
+    Title = 'Color', 
     Callback = function(Value) 
         CorpseESPColor = Value 
         for _, drawing in ipairs(activeCorpseDrawings) do
@@ -1551,7 +1858,7 @@ CorpseESPGroupBox:AddLabel('ESP Color'):AddColorPicker('CorpseESPColor', {
 })
 
 CorpseESPGroupBox:AddSlider('CorpseESPTextSize', { 
-    Text = 'ESP Size', 
+    Text = 'Size', 
     Default = 20, 
     Min = 10, 
     Max = 50, 
@@ -1577,8 +1884,8 @@ CorpseESPGroupBox:AddSlider('CorpseRenderDistance', {
     end 
 })
 
-MapESPGroupBox:AddToggle('GodviewToggle', {
-    Text = 'Enable Godview',
+MapESPGroupBox:AddToggle('GodviewToggle', { -- redundant remember thiss nigega
+    Text = 'Enabled',
     Default = false,
     Tooltip = 'Toggle Godview on or off',
     Callback = function(Value)
@@ -1596,9 +1903,9 @@ MapESPGroupBox:AddToggle('GodviewToggle', {
 })
 
 ReloadBarGroupBox:AddToggle('ReloadBarToggle', {
-    Text = 'Enable Reload Bar',
+    Text = 'Enabled',
     Default = false,
-    Tooltip = 'Toggle reload boar on or off',
+    Tooltip = 'Toggle reload baar on or off',
     Callback = function(Value)
         if Value then
             loadstring(game:HttpGet("https://raw.githubusercontent.com/fuckthiswebsite83/9840effr/refs/heads/main/barthing.lua"))()
@@ -1635,7 +1942,7 @@ AimedFOVGroupBox:AddButton({
 })
 
 SelfChamsGroupBox:AddToggle('SelfChamsEnabled', {
-    Text = 'Enable Self Chams',
+    Text = 'Enabled',
     Default = false,
     Tooltip = 'Toggle self chams on or off',
     Callback = function(Value)
@@ -1648,7 +1955,7 @@ SelfChamsGroupBox:AddToggle('SelfChamsEnabled', {
     end
 }):AddColorPicker('SelfChamsColor', { 
     Default = Color3.new(1, 0, 0), 
-    Title = 'Select Chams color', 
+    Title = 'Color', 
     Callback = function(Value) 
         selfChamsColor = Value 
         if selfChamsEnabled then
@@ -1737,39 +2044,6 @@ GunModsGroupBox:AddButton({
     end
 })
 
-GunModsGroupBox:AddToggle('BulletDrop', {
-    Text = 'Bullet Drop',
-    Default = false,
-    Tooltip = 'Toggle bullet drop on or off',
-    Callback = function(Value)
-        bulletDropEnabled = Value
-        local v0 = require(game:GetService("ReplicatedFirst").Framework)
-        local v1 = v0.require("Configs", "Globals")
-        if bulletDropEnabled then
-            v1.ProjectileGravity = bulletDropValue
-        else
-            v1.ProjectileGravity = 0
-        end
-    end
-})
-
-GunModsGroupBox:AddSlider('BulletDropValue', {
-    Text = 'Bullet Drop Value',
-    Default = 0,
-    Min = -100,
-    Max = 100,
-    Rounding = 1,
-    Compact = false,
-    Callback = function(Value)
-        bulletDropValue = Value
-        if bulletDropEnabled then
-            local v0 = require(game:GetService("ReplicatedFirst").Framework)
-            local v1 = v0.require("Configs", "Globals")
-            v1.ProjectileGravity = bulletDropValue
-        end
-    end
-})
-
 GunModsGroupBox:AddButton({
     Text = 'Change Firemodes',
     Func = function()
@@ -1810,6 +2084,39 @@ GunModsGroupBox:AddButton({
                 end
             end)
         end)
+    end
+})
+
+GunModsGroupBox:AddToggle('BulletDrop', {
+    Text = 'Bullet Drop',
+    Default = false,
+    Tooltip = 'Toggle bullet drop on or off',
+    Callback = function(Value)
+        bulletDropEnabled = Value
+        local v0 = require(game:GetService("ReplicatedFirst").Framework)
+        local v1 = v0.require("Configs", "Globals")
+        if bulletDropEnabled then
+            v1.ProjectileGravity = bulletDropValue
+        else
+            v1.ProjectileGravity = 0
+        end
+    end
+})
+
+GunModsGroupBox:AddSlider('BulletDropValue', {
+    Text = 'Bullet Drop Value',
+    Default = 0,
+    Min = -100,
+    Max = 100,
+    Rounding = 1,
+    Compact = false,
+    Callback = function(Value)
+        bulletDropValue = Value
+        if bulletDropEnabled then
+            local v0 = require(game:GetService("ReplicatedFirst").Framework)
+            local v1 = v0.require("Configs", "Globals")
+            v1.ProjectileGravity = bulletDropValue
+        end
     end
 })
 
@@ -1966,7 +2273,13 @@ ExploitsGroupBox:AddButton({
             return Grounded(Self, Position, LengthDown, ...)
         end))
     end,
-    Tooltip = 'Enable using items in the air'
+    Tooltip = 'Enable using items in the airar'
+})
+
+ExploitsGroupBox:AddButton({
+    Text = 'No Fall DMG',
+    Func = noFallDMG,
+    Tooltip = 'Enable No Fall Damage'
 })
 
 HitboxExpanderGroupBox:AddToggle('HitboxExpander', {
@@ -1983,7 +2296,7 @@ HitboxExpanderGroupBox:AddSlider('HitboxSize', {
     Text = 'Hitbox Size', 
     Default = 4, 
     Min = 1, 
-    Max = 10, 
+    Max = 40, 
     Rounding = 1, 
     Compact = false, 
     Callback = function(Value) 
